@@ -689,7 +689,7 @@ body {
 .card-check {
   position: absolute;
   bottom: 9px;
-  left: 9px;
+  right: 9px;
   width: 26px;
   height: 26px;
   border-radius: 50%;
