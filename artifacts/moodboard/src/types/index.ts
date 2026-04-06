@@ -9,4 +9,5 @@ export interface MoodboardItem {
   gridX?: number;
   gridY?: number;
   addedAt: string;
+  completed?: boolean;
 }

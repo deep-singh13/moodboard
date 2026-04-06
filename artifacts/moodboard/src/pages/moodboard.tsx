@@ -226,6 +226,14 @@ export default function Moodboard() {
     });
   }, []);
 
+  const toggleComplete = useCallback((id: string) => {
+    setItems(prev => {
+      const next = prev.map(i => i.id === id ? { ...i, completed: !i.completed } : i);
+      saveItems(next);
+      return next;
+    });
+  }, []);
+
   const inertia = useCallback(() => {
     if (Math.abs(velocity.current.x) < 0.1 && Math.abs(velocity.current.y) < 0.1) {
       velocity.current = { x: 0, y: 0 };
@@ -392,6 +400,7 @@ export default function Moodboard() {
                 key={item.id}
                 item={item}
                 onRemove={removeItem}
+                onToggleComplete={toggleComplete}
                 onPhotoClick={setLightboxSrc}
               />
             ))

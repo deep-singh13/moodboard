@@ -4,11 +4,21 @@ import type { MoodboardItem } from "@/types";
 interface MoodboardCardProps {
   item: MoodboardItem;
   onRemove: (id: string) => void;
+  onToggleComplete: (id: string) => void;
   onPhotoClick: (src: string) => void;
 }
 
-export function MoodboardCard({ item, onRemove, onPhotoClick }: MoodboardCardProps) {
+function CheckIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+}
+
+export function MoodboardCard({ item, onRemove, onToggleComplete, onPhotoClick }: MoodboardCardProps) {
   const [imgError, setImgError] = useState(false);
+  const completed = !!item.completed;
 
   const cardStyle: React.CSSProperties = {
     position: "absolute",
@@ -19,6 +29,7 @@ export function MoodboardCard({ item, onRemove, onPhotoClick }: MoodboardCardPro
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (completed) return; // don't open completed items accidentally
     if (item.type === "photo") {
       onPhotoClick(item.imageUrl ?? item.url);
     } else {
@@ -32,10 +43,18 @@ export function MoodboardCard({ item, onRemove, onPhotoClick }: MoodboardCardPro
     onRemove(item.id);
   };
 
+  const handleToggleComplete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onToggleComplete(item.id);
+  };
+
+  const completedClass = completed ? "is-completed" : "";
+
   if (item.type === "photo") {
     return (
       <div
-        className="moodboard-card moodboard-card--photo card-appear"
+        className={`moodboard-card moodboard-card--photo card-appear ${completedClass}`}
         style={cardStyle}
         onClick={handleClick}
       >
@@ -45,6 +64,22 @@ export function MoodboardCard({ item, onRemove, onPhotoClick }: MoodboardCardPro
           className="photo-img"
           draggable={false}
         />
+        {completed && (
+          <div className="completed-overlay">
+            <span className="completed-label">
+              <CheckIcon />
+              Completed
+            </span>
+          </div>
+        )}
+        <button
+          className={`card-check ${completed ? "card-check--done" : ""}`}
+          onClick={handleToggleComplete}
+          aria-label={completed ? "Mark incomplete" : "Mark complete"}
+          title={completed ? "Mark incomplete" : "Mark as done"}
+        >
+          <CheckIcon />
+        </button>
         <button className="card-remove" onClick={handleRemove} aria-label="Remove">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M18 6L6 18M6 6l12 12"/>
@@ -56,7 +91,7 @@ export function MoodboardCard({ item, onRemove, onPhotoClick }: MoodboardCardPro
 
   return (
     <div
-      className="moodboard-card card-appear"
+      className={`moodboard-card card-appear ${completedClass}`}
       style={cardStyle}
       onClick={handleClick}
     >
@@ -69,7 +104,7 @@ export function MoodboardCard({ item, onRemove, onPhotoClick }: MoodboardCardPro
             onError={() => setImgError(true)}
             draggable={false}
           />
-          {item.type === "youtube" && (
+          {item.type === "youtube" && !completed && (
             <div className="play-btn-overlay">
               <div className="play-btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -86,6 +121,28 @@ export function MoodboardCard({ item, onRemove, onPhotoClick }: MoodboardCardPro
         {item.title && <p className="card-title">{item.title}</p>}
         {item.subtitle && <p className="card-subtitle">{item.subtitle}</p>}
       </div>
+
+      {/* Completed hover overlay — shows when card is completed and hovered */}
+      {completed && (
+        <div className="completed-overlay">
+          <span className="completed-label">
+            <CheckIcon />
+            Completed
+          </span>
+        </div>
+      )}
+
+      {/* Complete toggle — always visible */}
+      <button
+        className={`card-check ${completed ? "card-check--done" : ""}`}
+        onClick={handleToggleComplete}
+        aria-label={completed ? "Mark incomplete" : "Mark complete"}
+        title={completed ? "Mark incomplete" : "Mark as done"}
+      >
+        <CheckIcon />
+      </button>
+
+      {/* Remove — shows on hover */}
       <button className="card-remove" onClick={handleRemove} aria-label="Remove">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M18 6L6 18M6 6l12 12"/>
