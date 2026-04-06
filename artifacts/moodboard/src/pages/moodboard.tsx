@@ -109,7 +109,23 @@ function loadItems(): MoodboardItem[] {
 }
 
 function saveItems(items: MoodboardItem[]) {
-  localStorage.setItem("moodboard-items", JSON.stringify(items));
+  // Try to save all items (photos are already compressed via canvas)
+  try {
+    localStorage.setItem("moodboard-items", JSON.stringify(items));
+    return;
+  } catch {
+    // Quota exceeded — strip photo data URLs as fallback
+  }
+  try {
+    const withoutPhotoData = items.map(item =>
+      item.type === "photo" && item.imageUrl?.startsWith("data:")
+        ? { ...item, imageUrl: undefined, url: "" }
+        : item
+    );
+    localStorage.setItem("moodboard-items", JSON.stringify(withoutPhotoData));
+  } catch {
+    // Still failing — silently ignore, items remain visible this session
+  }
 }
 
 function loadTheme(): "light" | "dark" {
