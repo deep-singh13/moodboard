@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { SkeletonCard } from "@/components/MoodboardCard";
 import type { MoodboardItem } from "@/types";
+import { fetchOgMeta } from "@/lib/api";
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -14,7 +15,9 @@ function detectType(url: string): MoodboardItem["type"] {
 }
 
 function extractYoutubeId(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  const m = url.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/,
+  );
   return m ? m[1] : null;
 }
 
@@ -26,92 +29,16 @@ function getDomain(url: string): string {
   }
 }
 
-// Robust OG tag extractor — handles both attribute orders and single/double quotes
-function parseOgTags(html: string): { title?: string; description?: string; image?: string } {
-  const getOg = (prop: string): string | undefined => {
-    // Try property="og:X" content="..." and content="..." property="og:X"
-    const patterns = [
-      new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']+)["']`, "i"),
-      new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:${prop}["']`, "i"),
-      // Also try name= variants
-      new RegExp(`<meta[^>]+name=["']og:${prop}["'][^>]+content=["']([^"']+)["']`, "i"),
-      // Twitter card fallback for image
-      ...(prop === "image" ? [
-        new RegExp(`<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']`, "i"),
-        new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']`, "i"),
-      ] : []),
-    ];
-    for (const re of patterns) {
-      const m = html.match(re);
-      if (m) return m[1];
-    }
-    return undefined;
-  };
-
-  const titleFallback = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim();
-  return {
-    title: getOg("title") ?? titleFallback,
-    description: getOg("description"),
-    image: getOg("image"),
-  };
-}
-
-// Try multiple CORS proxies in sequence
-async function fetchWithProxies(url: string): Promise<string> {
-  const proxies = [
-    async () => {
-      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, {
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    },
-    async () => {
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, {
-        signal: AbortSignal.timeout(8000),
-      });
-      const data = await res.json();
-      if (!data.contents) throw new Error("No contents");
-      return data.contents as string;
-    },
-    async () => {
-      const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, {
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    },
-  ];
-
-  let lastErr: unknown;
-  for (const proxy of proxies) {
-    try {
-      const html = await proxy();
-      // Sanity check — if we got a challenge page or very short response, try next
-      if (html && html.length > 500) return html;
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  throw lastErr ?? new Error("All proxies failed");
-}
-
-async function fetchOgMeta(url: string): Promise<{ title?: string; description?: string; image?: string }> {
-  try {
-    const html = await fetchWithProxies(url);
-    return parseOgTags(html);
-  } catch {
-    // Graceful fallback — return what we can from the URL itself
-    return {};
-  }
-}
-
-async function fetchYoutubeMeta(url: string, videoId: string): Promise<{ title?: string; imageUrl: string }> {
+async function fetchYoutubeMeta(
+  url: string,
+  videoId: string,
+): Promise<{ title?: string; imageUrl: string }> {
   const imageUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   try {
-    const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`, {
-      signal: AbortSignal.timeout(8000),
-    });
+    const res = await fetch(
+      `https://noembed.com/embed?url=${encodeURIComponent(url)}`,
+      { signal: AbortSignal.timeout(8000) },
+    );
     const data = await res.json();
     return { title: data.title, imageUrl };
   } catch {
@@ -119,8 +46,11 @@ async function fetchYoutubeMeta(url: string, videoId: string): Promise<{ title?:
   }
 }
 
-// Compress an image file to a smaller data URL using canvas
-function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<string> {
+function compressImage(
+  file: File,
+  maxWidth = 1200,
+  quality = 0.8,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
@@ -196,10 +126,10 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
       } else {
         const meta = await fetchOgMeta(normalizedUrl);
         const domain = getDomain(normalizedUrl);
-        // For Substack, try to extract a clean publication name from the domain
-        const substackName = type === "substack"
-          ? domain.replace(".substack.com", "")
-          : domain;
+        const substackName =
+          type === "substack"
+            ? domain.replace(".substack.com", "")
+            : domain;
         item = {
           id: crypto.randomUUID(),
           type,
@@ -230,7 +160,6 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
 
     setLoading(true);
     try {
-      // Compress before storing to avoid localStorage quota issues
       const dataUrl = await compressImage(file, 1200, 0.82);
       const item: MoodboardItem = {
         id: crypto.randomUUID(),
@@ -258,7 +187,14 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
         {loading ? (
           <div style={{ padding: "16px 0" }}>
             <SkeletonCard size={280} />
-            <p style={{ textAlign: "center", fontSize: 13, color: "var(--text-muted)", marginTop: 12 }}>
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 13,
+                color: "var(--text-muted)",
+                marginTop: 12,
+              }}
+            >
               Fetching…
             </p>
           </div>
@@ -270,7 +206,7 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
               type="url"
               placeholder="Paste a link — Substack, YouTube, or any website"
               value={url}
-              onChange={e => setUrl(e.target.value)}
+              onChange={(e) => setUrl(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={loading}
             />
@@ -280,10 +216,17 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
                 className="modal-btn-secondary"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
                 </svg>
                 Upload Photo
               </button>

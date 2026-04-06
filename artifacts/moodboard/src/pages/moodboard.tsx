@@ -4,10 +4,16 @@ import { MoodboardCard } from "@/components/MoodboardCard";
 import { Lightbox } from "@/components/Lightbox";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { MoodboardItem } from "@/types";
+import {
+  fetchItems,
+  createItem,
+  deleteItem,
+  patchItemComplete,
+} from "@/lib/api";
 
 const GRID_GAP = 20;
 const COLS_SIZES = [220, 320, 420];
-const SIZE_WEIGHTS = [1, 3, 1]; // bias toward medium
+const SIZE_WEIGHTS = [1, 3, 1];
 
 function pickSize(): number {
   const total = SIZE_WEIGHTS.reduce((a, b) => a + b, 0);
@@ -41,7 +47,7 @@ function computeLayout(items: MoodboardItem[]): MoodboardItem[] {
   const result = items.map((item, i) => {
     const w = item.size ?? pickSize();
     const h = item.type === "photo" ? w : w * 0.75 + 80;
-    
+
     let bestX = 0;
     let bestY = 0;
     let found = false;
@@ -52,7 +58,7 @@ function computeLayout(items: MoodboardItem[]): MoodboardItem[] {
       found = true;
     } else {
       const candidates: Array<{ x: number; y: number; dist: number }> = [];
-      
+
       for (const p of placed) {
         const positions = [
           { x: p.x + p.w + GRID_GAP, y: p.y },
@@ -98,36 +104,6 @@ function computeLayout(items: MoodboardItem[]): MoodboardItem[] {
   return result;
 }
 
-function loadItems(): MoodboardItem[] {
-  try {
-    const raw = localStorage.getItem("moodboard-items");
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
-}
-
-function saveItems(items: MoodboardItem[]) {
-  // Try to save all items (photos are already compressed via canvas)
-  try {
-    localStorage.setItem("moodboard-items", JSON.stringify(items));
-    return;
-  } catch {
-    // Quota exceeded — strip photo data URLs as fallback
-  }
-  try {
-    const withoutPhotoData = items.map(item =>
-      item.type === "photo" && item.imageUrl?.startsWith("data:")
-        ? { ...item, imageUrl: undefined, url: "" }
-        : item
-    );
-    localStorage.setItem("moodboard-items", JSON.stringify(withoutPhotoData));
-  } catch {
-    // Still failing — silently ignore, items remain visible this session
-  }
-}
-
 function loadTheme(): "light" | "dark" {
   try {
     const t = localStorage.getItem("moodboard-theme");
@@ -144,7 +120,8 @@ export default function Moodboard() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [showHint, setShowHint] = useState(false);
   const [hintFading, setHintFading] = useState(false);
-  
+  const [loadError, setLoadError] = useState(false);
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -177,11 +154,11 @@ export default function Moodboard() {
     document.documentElement.setAttribute("data-theme", storedTheme);
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
-      metaThemeColor.setAttribute("content", storedTheme === "dark" ? "#111110" : "#F9F8F5");
+      metaThemeColor.setAttribute(
+        "content",
+        storedTheme === "dark" ? "#111110" : "#F9F8F5",
+      );
     }
-
-    const storedItems = loadItems();
-    setItems(storedItems);
 
     const isMobile = window.innerWidth < 768;
     const isFirstLoad = !localStorage.getItem("moodboard-hint-shown");
@@ -191,6 +168,10 @@ export default function Moodboard() {
       setTimeout(() => setHintFading(true), 2500);
       setTimeout(() => setShowHint(false), 3000);
     }
+
+    fetchItems()
+      .then((loaded) => setItems(loaded))
+      .catch(() => setLoadError(true));
   }, []);
 
   useEffect(() => {
@@ -198,38 +179,47 @@ export default function Moodboard() {
   }, [items]);
 
   const toggleTheme = useCallback(() => {
-    setTheme(prev => {
+    setTheme((prev) => {
       const next = prev === "light" ? "dark" : "light";
       localStorage.setItem("moodboard-theme", next);
       document.documentElement.setAttribute("data-theme", next);
       const metaThemeColor = document.querySelector('meta[name="theme-color"]');
       if (metaThemeColor) {
-        metaThemeColor.setAttribute("content", next === "dark" ? "#111110" : "#F9F8F5");
+        metaThemeColor.setAttribute(
+          "content",
+          next === "dark" ? "#111110" : "#F9F8F5",
+        );
       }
       return next;
     });
   }, []);
 
   const addItem = useCallback((item: MoodboardItem) => {
-    setItems(prev => {
-      const next = [...prev, { ...item, size: pickSize() }];
-      saveItems(next);
-      return next;
+    const withSize = { ...item, size: pickSize() };
+    setItems((prev) => [...prev, withSize]);
+    createItem(withSize).catch(() => {
+      setItems((prev) => prev.filter((i) => i.id !== withSize.id));
     });
   }, []);
 
   const removeItem = useCallback((id: string) => {
-    setItems(prev => {
-      const next = prev.filter(i => i.id !== id);
-      saveItems(next);
-      return next;
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    deleteItem(id).catch(() => {
+      // Item already removed from UI — nothing to revert cleanly
     });
   }, []);
 
   const toggleComplete = useCallback((id: string) => {
-    setItems(prev => {
-      const next = prev.map(i => i.id === id ? { ...i, completed: !i.completed } : i);
-      saveItems(next);
+    setItems((prev) => {
+      const next = prev.map((i) =>
+        i.id === id ? { ...i, completed: !i.completed } : i,
+      );
+      const updated = next.find((i) => i.id === id);
+      if (updated) {
+        patchItemComplete(id, updated.completed ?? false).catch(() => {
+          // Silent — state already flipped; ideally revert on error
+        });
+      }
       return next;
     });
   }, []);
@@ -323,7 +313,10 @@ export default function Moodboard() {
         const newScale = Math.max(0.2, Math.min(3, scale.current + delta));
         scale.current = newScale;
         lastPinchDist.current = dist;
-      } else if (e.touches.length === 1 && lastTouches.current.length === 1) {
+      } else if (
+        e.touches.length === 1 &&
+        lastTouches.current.length === 1
+      ) {
         const dx = e.touches[0].clientX - lastTouches.current[0].clientX;
         const dy = e.touches[0].clientY - lastTouches.current[0].clientY;
         velocity.current = { x: dx, y: dy };
@@ -376,26 +369,41 @@ export default function Moodboard() {
     <div className="moodboard-root" data-theme={theme}>
       <div className="moodboard-topbar">
         <button className="reset-btn" onClick={resetView} title="Reset view">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
           </svg>
           Reset view
         </button>
-        <span className="item-count">{items.length} {items.length === 1 ? "item" : "items"}</span>
+        <span className="item-count">
+          {items.length} {items.length === 1 ? "item" : "items"}
+        </span>
         <ThemeToggle theme={theme} onToggle={toggleTheme} />
       </div>
 
       <div ref={wrapperRef} className="moodboard-wrapper">
         <div ref={canvasRef} className="moodboard-canvas">
-          {items.length === 0 ? (
+          {loadError ? (
+            <div className="empty-state">
+              <div className="empty-state-inner">
+                <p>Couldn't connect to the server. Please refresh.</p>
+              </div>
+            </div>
+          ) : items.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-inner">
                 <p>Your moodboard is empty — add a link or photo to begin</p>
               </div>
             </div>
           ) : (
-            layoutItems.map(item => (
+            layoutItems.map((item) => (
               <MoodboardCard
                 key={item.id}
                 item={item}
@@ -419,16 +427,20 @@ export default function Moodboard() {
         onClick={() => setIsModalOpen(true)}
         aria-label="Add item"
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 5v14M5 12h14"/>
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
 
       {isModalOpen && (
-        <AddItemModal
-          onClose={() => setIsModalOpen(false)}
-          onAdd={addItem}
-        />
+        <AddItemModal onClose={() => setIsModalOpen(false)} onAdd={addItem} />
       )}
 
       {lightboxSrc && (
