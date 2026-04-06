@@ -25,3 +25,21 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Artifacts
+
+### Moodboard (`artifacts/moodboard`)
+- **Preview path**: `/`
+- **Tech**: React + Vite, TypeScript, vanilla CSS (no Tailwind)
+- **Features**:
+  - Infinite pan-able canvas with inertia/momentum
+  - Pinch-to-zoom (mobile) + Ctrl+scroll (desktop)
+  - 4 item types: Substack posts, YouTube videos, links, photos
+  - OG metadata fetching via allorigins.win CORS proxy
+  - YouTube metadata via noembed.com
+  - Photo upload with lightbox viewer
+  - Light/dark theme toggle (stored in localStorage)
+  - All items persisted to localStorage
+  - Algorithmic center-anchored card layout
+  - Skeleton loading states, card appear animations
+  - Empty state, drag hint (mobile), reset view button

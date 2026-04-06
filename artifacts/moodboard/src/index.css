@@ -1,0 +1,660 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+/* ============================================================
+   CSS CUSTOM PROPERTIES — DESIGN TOKENS
+   ============================================================ */
+
+:root {
+  --bg-canvas: #F9F8F5;
+  --bg-card: #FFFFFF;
+  --bg-modal: #FFFFFF;
+  --bg-modal-overlay: rgba(0, 0, 0, 0.3);
+  --bg-skeleton: #EFEFED;
+  --bg-btn-add: #D4A574;
+  --bg-btn-add-hover: #C4956A;
+  --bg-topbar: rgba(249, 248, 245, 0.85);
+  --border-card: rgba(0, 0, 0, 0.08);
+  --border-card-hover: rgba(0, 0, 0, 0.18);
+  --border-input: rgba(0, 0, 0, 0.15);
+  --border-modal: rgba(0, 0, 0, 0.08);
+  --text-primary: #1A1A1A;
+  --text-secondary: #888888;
+  --text-muted: #BBBBBB;
+  --text-btn-add: #FFFFFF;
+  --text-link: #1A1A1A;
+  --play-btn-bg: rgba(255, 255, 255, 0.92);
+  --play-btn-icon: #1A1A1A;
+  --skeleton-shine: rgba(255,255,255,0.6);
+  --empty-state-border: rgba(0,0,0,0.12);
+  --scrollbar-thumb: rgba(0,0,0,0.15);
+  --toggle-bg: #E8E6E0;
+  --toggle-icon: #555555;
+  --lightbox-bg: rgba(0, 0, 0, 0.92);
+  --reset-btn-bg: rgba(249,248,245,0.9);
+  --reset-btn-border: rgba(0,0,0,0.1);
+  --reset-btn-text: #555555;
+}
+
+[data-theme="dark"] {
+  --bg-canvas: #111110;
+  --bg-card: #1C1C1A;
+  --bg-modal: rgba(28,28,26,0.95);
+  --bg-modal-overlay: rgba(0, 0, 0, 0.6);
+  --bg-skeleton: #2A2A28;
+  --bg-btn-add: #D4A574;
+  --bg-btn-add-hover: #C4956A;
+  --bg-topbar: rgba(17, 17, 16, 0.85);
+  --border-card: rgba(255, 255, 255, 0.07);
+  --border-card-hover: rgba(255, 255, 255, 0.16);
+  --border-input: rgba(255, 255, 255, 0.12);
+  --border-modal: rgba(255, 255, 255, 0.07);
+  --text-primary: #EDECE8;
+  --text-secondary: #888888;
+  --text-muted: #555555;
+  --text-btn-add: #FFFFFF;
+  --text-link: #EDECE8;
+  --play-btn-bg: rgba(28, 28, 26, 0.92);
+  --play-btn-icon: #EDECE8;
+  --skeleton-shine: rgba(255,255,255,0.04);
+  --empty-state-border: rgba(255,255,255,0.1);
+  --scrollbar-thumb: rgba(255,255,255,0.1);
+  --toggle-bg: #2A2A28;
+  --toggle-icon: #BBBBBB;
+  --lightbox-bg: rgba(0, 0, 0, 0.96);
+  --reset-btn-bg: rgba(28,28,26,0.9);
+  --reset-btn-border: rgba(255,255,255,0.08);
+  --reset-btn-text: #888888;
+}
+
+/* ============================================================
+   GLOBAL RESET & BASE
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   MOODBOARD ROOT
+   ============================================================ */
+
+.moodboard-root {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+
+.moodboard-topbar {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.moodboard-topbar > * {
+  pointer-events: all;
+}
+
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--reset-btn-bg);
+  border: 1px solid var(--reset-btn-border);
+  color: var(--reset-btn-text);
+  border-radius: 100px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.reset-btn:hover {
+  background: var(--bg-topbar);
+}
+
+.item-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.theme-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--toggle-bg);
+  border: none;
+  border-radius: 100px;
+  color: var(--toggle-icon);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.theme-toggle:hover {
+  opacity: 0.8;
+}
+
+/* ============================================================
+   CANVAS & WRAPPER
+   ============================================================ */
+
+.moodboard-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.moodboard-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.empty-state-inner {
+  padding: 40px 48px;
+  border: 1.5px dashed var(--empty-state-border);
+  border-radius: 16px;
+  max-width: 320px;
+}
+
+.empty-state-inner p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+
+.moodboard-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  position: absolute;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.moodboard-card:hover {
+  transform: scale(1.02);
+  border-color: var(--border-card-hover);
+}
+
+.moodboard-card--photo {
+  line-height: 0;
+}
+
+.moodboard-card--photo .photo-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+}
+
+.card-image-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--bg-skeleton);
+}
+
+.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card-image-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-skeleton);
+}
+
+.play-btn-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.play-btn {
+  width: 40px;
+  height: 40px;
+  background: var(--play-btn-bg);
+  color: var(--play-btn-icon);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding-left: 3px;
+}
+
+.card-body {
+  padding: 10px 12px 12px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-link);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background: var(--bg-modal-overlay);
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.moodboard-card:hover .card-remove {
+  opacity: 1;
+}
+
+/* ============================================================
+   SKELETON
+   ============================================================ */
+
+.skeleton-card {
+  cursor: default;
+}
+
+.skeleton-card:hover {
+  transform: none;
+}
+
+.skeleton-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-skeleton);
+  background-image: linear-gradient(
+    90deg,
+    var(--bg-skeleton) 0%,
+    var(--skeleton-shine) 50%,
+    var(--bg-skeleton) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--bg-skeleton);
+  background-image: linear-gradient(
+    90deg,
+    var(--bg-skeleton) 0%,
+    var(--skeleton-shine) 50%,
+    var(--bg-skeleton) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.skeleton-title {
+  width: 80%;
+  margin-bottom: 8px;
+}
+
+.skeleton-subtitle {
+  width: 50%;
+  height: 10px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ============================================================
+   CARD APPEAR ANIMATION
+   ============================================================ */
+
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.card-appear {
+  animation: cardAppear 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============================================================
+   FAB BUTTON
+   ============================================================ */
+
+.fab-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  background: var(--bg-btn-add);
+  color: var(--text-btn-add);
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fab-btn:hover {
+  background: var(--bg-btn-add-hover);
+  transform: scale(1.05);
+}
+
+.fab-btn:active {
+  transform: scale(0.96);
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-modal-overlay);
+  z-index: 300;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: overlayFadeIn 0.2s ease;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-drawer {
+  width: 100%;
+  max-width: 540px;
+  background: var(--bg-modal);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-modal);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 24px 36px;
+  animation: drawerSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes drawerSlideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border-modal);
+  border-radius: 2px;
+  margin: 0 auto 20px;
+}
+
+.modal-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 11px 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.modal-input:focus {
+  border-color: var(--bg-btn-add);
+}
+
+.modal-input::placeholder {
+  color: var(--text-muted);
+}
+
+.modal-error {
+  font-size: 12px;
+  color: #d44;
+  margin-top: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.modal-btn-secondary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.modal-btn-secondary:hover {
+  background: var(--bg-skeleton);
+}
+
+.modal-btn-primary {
+  flex: 1;
+  padding: 10px 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-btn-add);
+  background: var(--bg-btn-add);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.modal-btn-primary:hover:not(:disabled) {
+  background: var(--bg-btn-add-hover);
+}
+
+.modal-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   LIGHTBOX
+   ============================================================ */
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--lightbox-bg);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlayFadeIn 0.2s ease;
+  cursor: zoom-out;
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 8px;
+  object-fit: contain;
+  cursor: default;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.12);
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lightbox-close:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+/* ============================================================
+   DRAG HINT
+   ============================================================ */
+
+.drag-hint {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--reset-btn-bg);
+  border: 1px solid var(--reset-btn-border);
+  border-radius: 100px;
+  padding: 6px 16px;
+  z-index: 150;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: opacity 0.5s ease;
+}
+
+.drag-hint.fading {
+  opacity: 0;
+}
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
