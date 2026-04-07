@@ -38,7 +38,7 @@ app.get("/health", (_req, res) => {
 app.use("/api", router);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const frontendDist = path.resolve(__dirname, "../../artifacts/moodboard/dist/public");
+const frontendDist = path.resolve(__dirname, "../../moodboard/dist/public");
 
 app.use(express.static(frontendDist));
 app.use((_req, res) => {
