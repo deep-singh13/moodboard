@@ -120,7 +120,9 @@ export default function Moodboard() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [showHint, setShowHint] = useState(false);
   const [hintFading, setHintFading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -170,8 +172,14 @@ export default function Moodboard() {
     }
 
     fetchItems()
-      .then((loaded) => setItems(loaded))
-      .catch(() => setLoadError(true));
+      .then((loaded) => {
+        setItems(loaded);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoadError(true);
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -199,6 +207,8 @@ export default function Moodboard() {
     setItems((prev) => [...prev, withSize]);
     createItem(withSize).catch(() => {
       setItems((prev) => prev.filter((i) => i.id !== withSize.id));
+      setAddError("Couldn't save that item — check your connection and try again.");
+      setTimeout(() => setAddError(null), 4000);
     });
   }, []);
 
@@ -390,7 +400,15 @@ export default function Moodboard() {
 
       <div ref={wrapperRef} className="moodboard-wrapper">
         <div ref={canvasRef} className="moodboard-canvas">
-          {loadError ? (
+          {loading ? (
+            <div className="empty-state">
+              <div className="empty-state-inner canvas-loading">
+                <span className="loading-dot" />
+                <span className="loading-dot" />
+                <span className="loading-dot" />
+              </div>
+            </div>
+          ) : loadError ? (
             <div className="empty-state">
               <div className="empty-state-inner">
                 <p>Couldn't connect to the server. Please refresh.</p>
@@ -445,6 +463,12 @@ export default function Moodboard() {
 
       {lightboxSrc && (
         <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
+
+      {addError && (
+        <div className="error-toast" role="alert">
+          {addError}
+        </div>
       )}
     </div>
   );
