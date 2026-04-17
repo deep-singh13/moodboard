@@ -14,6 +14,7 @@ function rowToItem(row: Record<string, unknown>) {
     size: row.size ? Number(row.size) : undefined,
     addedAt: row.added_at,
     completed: row.completed ?? false,
+    note: (row.note as string | null) ?? undefined,
   };
 }
 
@@ -69,12 +70,20 @@ router.delete("/items/:id", async (req, res) => {
 });
 
 router.patch("/items/:id", async (req, res) => {
-  const { completed } = req.body as { completed: boolean };
+  const body = req.body as { completed?: boolean; note?: string | null };
   try {
-    await pool.query("UPDATE items SET completed = $1 WHERE id = $2", [
-      completed,
-      req.params.id,
-    ]);
+    if (body.completed !== undefined) {
+      await pool.query("UPDATE items SET completed = $1 WHERE id = $2", [
+        body.completed,
+        req.params.id,
+      ]);
+    }
+    if ("note" in body) {
+      await pool.query("UPDATE items SET note = $1 WHERE id = $2", [
+        body.note ?? null,
+        req.params.id,
+      ]);
+    }
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Failed to update item" });

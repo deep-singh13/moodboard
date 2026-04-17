@@ -149,8 +149,128 @@ body {
   font-weight: 400;
 }
 
+/* Search */
+
+.search-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 320px;
+  min-width: 0;
+}
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 28px 6px 30px;
+  background: var(--reset-btn-bg);
+  border: 1px solid var(--reset-btn-border);
+  border-radius: 100px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--text-primary);
+  outline: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-input:focus {
+  border-color: var(--bg-btn-add);
+  background: var(--bg-topbar);
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.search-clear-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Surprise Me button */
+
+.surprise-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--reset-btn-bg);
+  border: 1px solid var(--reset-btn-border);
+  color: var(--reset-btn-text);
+  border-radius: 100px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.15s ease, opacity 0.15s;
+}
+
+.surprise-btn:hover:not(:disabled) {
+  background: var(--bg-topbar);
+}
+
+.surprise-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Search empty state */
+
+.search-empty-state {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.search-empty-inner {
+  padding: 40px 48px;
+  border: 1.5px dashed var(--empty-state-border);
+  border-radius: 16px;
+  max-width: 320px;
+}
+
+.search-empty-inner p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
 .theme-toggle {
-  margin-left: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -335,6 +455,135 @@ body {
 
 .moodboard-card:hover .card-remove {
   opacity: 1;
+}
+
+/* Surprise highlight */
+
+.moodboard-card.is-highlighted {
+  box-shadow: 0 0 0 3px var(--bg-btn-add), 0 0 24px rgba(212, 165, 116, 0.35);
+  border-color: var(--bg-btn-add);
+  z-index: 5;
+  animation: highlightPulse 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes highlightPulse {
+  0% { box-shadow: 0 0 0 0 rgba(212, 165, 116, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(212, 165, 116, 0.5), 0 0 32px rgba(212, 165, 116, 0.4); }
+  100% { box-shadow: 0 0 0 3px var(--bg-btn-add), 0 0 24px rgba(212, 165, 116, 0.35); }
+}
+
+/* Note dot indicator */
+
+.note-dot {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bg-btn-add);
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.moodboard-card:hover .note-dot {
+  opacity: 0;
+}
+
+/* Pencil / note edit button */
+
+.card-note {
+  position: absolute;
+  bottom: 9px;
+  left: 9px;
+  width: 24px;
+  height: 24px;
+  background: var(--bg-modal-overlay);
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.moodboard-card:hover .card-note {
+  opacity: 1;
+}
+
+/* Inline note edit area */
+
+.note-edit-area {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-input);
+  border-radius: 0 0 12px 12px;
+  padding: 8px 10px 10px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.note-textarea {
+  width: 100%;
+  resize: none;
+  background: transparent;
+  border: 1px solid var(--border-input);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--text-primary);
+  outline: none;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+
+.note-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.note-textarea:focus {
+  border-color: var(--bg-btn-add);
+}
+
+.note-edit-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.note-char-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.note-save-btn {
+  padding: 4px 12px;
+  background: var(--bg-btn-add);
+  color: var(--text-btn-add);
+  border: none;
+  border-radius: 100px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.note-save-btn:hover {
+  background: var(--bg-btn-add-hover);
 }
 
 /* ============================================================

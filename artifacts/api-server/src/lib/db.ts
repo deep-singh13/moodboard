@@ -33,4 +33,7 @@ export async function initDb(): Promise<void> {
       completed   BOOLEAN     NOT NULL DEFAULT false
     )
   `);
+  await pool.query(`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS note TEXT
+  `);
 }

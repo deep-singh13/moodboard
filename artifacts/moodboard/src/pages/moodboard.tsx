@@ -9,6 +9,7 @@ import {
   createItem,
   deleteItem,
   patchItemComplete,
+  patchItemNote,
 } from "@/lib/api";
 
 const GRID_GAP = 20;
@@ -104,6 +105,14 @@ function computeLayout(items: MoodboardItem[]): MoodboardItem[] {
   return result;
 }
 
+function matchesSearch(item: MoodboardItem, query: string): boolean {
+  const q = query.toLowerCase().trim();
+  if (!q) return true;
+  return [item.title ?? "", item.subtitle ?? "", item.note ?? ""].some((f) =>
+    f.toLowerCase().includes(q),
+  );
+}
+
 function loadTheme(): "light" | "dark" {
   try {
     const t = localStorage.getItem("moodboard-theme");
@@ -123,9 +132,13 @@ export default function Moodboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [surpriseId, setSurpriseId] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const surpriseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const panX = useRef(0);
   const panY = useRef(0);
@@ -149,6 +162,36 @@ export default function Moodboard() {
     scale.current = 1;
     applyTransform();
   }, [applyTransform]);
+
+  const scrollToItem = useCallback(
+    (item: MoodboardItem) => {
+      const w = item.size ?? 320;
+      const h = item.type === "photo" ? w : w * 0.75 + 80;
+      const targetPanX = -((item.gridX ?? 0) + w / 2) * scale.current;
+      const targetPanY = -((item.gridY ?? 0) + h / 2) * scale.current;
+
+      const startPanX = panX.current;
+      const startPanY = panY.current;
+      const startTime = performance.now();
+      const duration = 600;
+
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+
+      const animate = (time: number) => {
+        const progress = Math.min((time - startTime) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        panX.current = startPanX + (targetPanX - startPanX) * ease;
+        panY.current = startPanY + (targetPanY - startPanY) * ease;
+        applyTransform();
+        if (progress < 1) {
+          animFrameRef.current = requestAnimationFrame(animate);
+        }
+      };
+
+      animFrameRef.current = requestAnimationFrame(animate);
+    },
+    [applyTransform],
+  );
 
   useEffect(() => {
     const storedTheme = loadTheme();
@@ -214,9 +257,7 @@ export default function Moodboard() {
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
-    deleteItem(id).catch(() => {
-      // Item already removed from UI — nothing to revert cleanly
-    });
+    deleteItem(id).catch(() => {});
   }, []);
 
   const toggleComplete = useCallback((id: string) => {
@@ -226,13 +267,38 @@ export default function Moodboard() {
       );
       const updated = next.find((i) => i.id === id);
       if (updated) {
-        patchItemComplete(id, updated.completed ?? false).catch(() => {
-          // Silent — state already flipped; ideally revert on error
-        });
+        patchItemComplete(id, updated.completed ?? false).catch(() => {});
       }
       return next;
     });
   }, []);
+
+  const updateNote = useCallback((id: string, note: string | null) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, note: note ?? undefined } : i)),
+    );
+    patchItemNote(id, note).catch(() => {});
+  }, []);
+
+  const handleSurpriseMe = useCallback(() => {
+    const pool = searchQuery
+      ? layoutItems.filter((item) => matchesSearch(item, searchQuery))
+      : layoutItems;
+    if (pool.length === 0) return;
+
+    if (surpriseTimerRef.current) clearTimeout(surpriseTimerRef.current);
+
+    let candidates = pool;
+    if (pool.length > 1 && surpriseId) {
+      candidates = pool.filter((i) => i.id !== surpriseId);
+    }
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+
+    setSurpriseId(picked.id);
+    scrollToItem(picked);
+
+    surpriseTimerRef.current = setTimeout(() => setSurpriseId(null), 4000);
+  }, [layoutItems, searchQuery, surpriseId, scrollToItem]);
 
   const inertia = useCallback(() => {
     if (Math.abs(velocity.current.x) < 0.1 && Math.abs(velocity.current.y) < 0.1) {
@@ -323,10 +389,7 @@ export default function Moodboard() {
         const newScale = Math.max(0.2, Math.min(3, scale.current + delta));
         scale.current = newScale;
         lastPinchDist.current = dist;
-      } else if (
-        e.touches.length === 1 &&
-        lastTouches.current.length === 1
-      ) {
+      } else if (e.touches.length === 1 && lastTouches.current.length === 1) {
         const dx = e.touches[0].clientX - lastTouches.current[0].clientX;
         const dy = e.touches[0].clientY - lastTouches.current[0].clientY;
         velocity.current = { x: dx, y: dy };
@@ -369,11 +432,37 @@ export default function Moodboard() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isModalOpen) setIsModalOpen(false);
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (e.key === "Escape") {
+        if (searchQuery) {
+          setSearchQuery("");
+          searchInputRef.current?.blur();
+          return;
+        }
+        if (isModalOpen) setIsModalOpen(false);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isModalOpen]);
+  }, [isModalOpen, searchQuery]);
+
+  // Clear surprise highlight when user clicks surprise id tile or after timer
+  useEffect(() => {
+    return () => {
+      if (surpriseTimerRef.current) clearTimeout(surpriseTimerRef.current);
+    };
+  }, []);
+
+  const displayedItems = searchQuery
+    ? layoutItems.filter((item) => matchesSearch(item, searchQuery))
+    : layoutItems;
+
+  const showSearchEmpty =
+    !!searchQuery && displayedItems.length === 0 && !loading && !loadError && items.length > 0;
 
   return (
     <div className="moodboard-root" data-theme={theme}>
@@ -395,6 +484,55 @@ export default function Moodboard() {
         <span className="item-count">
           {items.length} {items.length === 1 ? "item" : "items"}
         </span>
+
+        <div className="search-wrap">
+          <svg
+            className="search-icon"
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="search-input"
+            placeholder="Search… (⌘K)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search tiles"
+          />
+          {searchQuery && (
+            <button
+              className="search-clear-btn"
+              onClick={() => {
+                setSearchQuery("");
+                searchInputRef.current?.focus();
+              }}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        <button
+          className="surprise-btn"
+          onClick={handleSurpriseMe}
+          disabled={items.length === 0}
+          title="Highlight a random tile"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          Surprise me
+        </button>
+
         <ThemeToggle theme={theme} onToggle={toggleTheme} />
       </div>
 
@@ -421,18 +559,28 @@ export default function Moodboard() {
               </div>
             </div>
           ) : (
-            layoutItems.map((item) => (
+            displayedItems.map((item) => (
               <MoodboardCard
                 key={item.id}
                 item={item}
                 onRemove={removeItem}
                 onToggleComplete={toggleComplete}
                 onPhotoClick={setLightboxSrc}
+                isHighlighted={item.id === surpriseId}
+                onUpdateNote={updateNote}
               />
             ))
           )}
         </div>
       </div>
+
+      {showSearchEmpty && (
+        <div className="search-empty-state">
+          <div className="search-empty-inner">
+            <p>No results for &ldquo;{searchQuery}&rdquo;</p>
+          </div>
+        </div>
+      )}
 
       {showHint && (
         <div className={`drag-hint ${hintFading ? "fading" : ""}`}>
