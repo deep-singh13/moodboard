@@ -1081,3 +1081,39 @@ body {
   from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* ============================================================
+   MOBILE — topbar layout fix (≤ 640px)
+   Desktop layout is completely unchanged above this breakpoint.
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .moodboard-topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    /* Extra top padding so the two-row bar doesn't sit too close to the status bar */
+    top: 12px;
+  }
+
+  /* Search bar moves to its own full-width first row */
+  .search-wrap {
+    order: -1;
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  /* Keep the search input readable at full width */
+  .search-input {
+    font-size: 13px;
+  }
+
+  /* "Surprise me" collapses to icon-only to save row-2 space */
+  .surprise-btn-label {
+    display: none;
+  }
+
+  /* Tighten the surprise button padding when label is hidden */
+  .surprise-btn {
+    padding: 6px 9px;
+  }
+}
