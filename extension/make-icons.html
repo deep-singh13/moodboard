@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<!--
+  ICON GENERATOR
+  ──────────────
+  Open this file in Chrome, then click "Download Icons".
+  Three PNG files (icon16.png, icon48.png, icon128.png) will download.
+  Move them into the extension/icons/ folder, then load the extension.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Generate Moodboard Icons</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      background: #111110;
+      color: #EDECE8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 24px;
+    }
+    h2 { font-size: 18px; font-weight: 600; color: #EDECE8; }
+    p  { font-size: 13px; color: #888; text-align: center; max-width: 340px; line-height: 1.6; }
+    .canvases { display: flex; gap: 24px; align-items: flex-end; }
+    canvas { border-radius: 22%; display: block; }
+    button {
+      padding: 10px 28px;
+      background: #D4A574;
+      color: #111110;
+      border: none;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #C4956A; }
+  </style>
+</head>
+<body>
+
+<h2>Moodboard Icon Generator</h2>
+<p>Click the button below to download the three icon sizes needed by the extension.</p>
+
+<div class="canvases">
+  <canvas id="c16"  width="16"  height="16"  title="16×16"></canvas>
+  <canvas id="c48"  width="48"  height="48"  title="48×48"></canvas>
+  <canvas id="c128" width="128" height="128" title="128×128"></canvas>
+</div>
+
+<button onclick="downloadAll()">Download Icons</button>
+
+<script>
+  function drawIcon(canvas) {
+    const ctx  = canvas.getContext('2d');
+    const s    = canvas.width;
+    const r    = s * 0.2;
+
+    // Amber background
+    ctx.fillStyle = '#D4A574';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, s, s, r);
+    ctx.fill();
+
+    // 2×2 grid of dark tiles (representing a moodboard)
+    const pad  = s * 0.18;
+    const gap  = s * 0.1;
+    const tile = (s - pad * 2 - gap) / 2;
+    const tileR = tile * 0.18;
+
+    ctx.fillStyle = 'rgba(17,17,16,0.72)';
+
+    const positions = [
+      [pad,         pad        ],
+      [pad + tile + gap, pad        ],
+      [pad,         pad + tile + gap],
+      [pad + tile + gap, pad + tile + gap],
+    ];
+
+    for (const [x, y] of positions) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, tile, tile, tileR);
+      ctx.fill();
+    }
+  }
+
+  // Draw all three on page load so they're visible as preview
+  ['c16', 'c48', 'c128'].forEach(id => drawIcon(document.getElementById(id)));
+
+  function downloadAll() {
+    const files = [
+      { id: 'c16',  name: 'icon16.png'  },
+      { id: 'c48',  name: 'icon48.png'  },
+      { id: 'c128', name: 'icon128.png' },
+    ];
+    files.forEach(({ id, name }) => {
+      const a = Object.assign(document.createElement('a'), {
+        href:     document.getElementById(id).toDataURL('image/png'),
+        download: name,
+      });
+      a.click();
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Moodboard Saver",
+  "version": "1.0.0",
+  "description": "Save any page to your Moodboard with one click",
+  "permissions": ["activeTab"],
+  "host_permissions": [
+    "https://moodboard-zyji.onrender.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Save to Moodboard (⌘⇧S)"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Open Moodboard Saver"
+    }
+  }
+}

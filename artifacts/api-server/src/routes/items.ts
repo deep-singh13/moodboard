@@ -30,7 +30,9 @@ router.get("/items", async (_req, res) => {
 });
 
 router.post("/items", async (req, res) => {
-  const { id, type, url, title, subtitle, imageUrl, size, addedAt } = req.body as Record<string, string>;
+  const body = req.body as Record<string, string | null | undefined>;
+  const { id, type, url, title, subtitle, imageUrl, size, addedAt } = body;
+  const note = (body.note as string | null | undefined) ?? null;
 
   const isPhoto = type === "photo";
   const imageUrlDb = isPhoto ? null : (imageUrl ?? null);
@@ -39,8 +41,8 @@ router.post("/items", async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO items
-         (id, type, url, title, subtitle, image_url, size, position_x, position_y, added_at, image_data)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, $8, $9)
+         (id, type, url, title, subtitle, image_url, size, position_x, position_y, added_at, image_data, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, $8, $9, $10)
        RETURNING *`,
       [
         id,
@@ -52,6 +54,7 @@ router.post("/items", async (req, res) => {
         String(size ?? 320),
         addedAt ?? new Date().toISOString(),
         imageDataDb,
+        note,
       ],
     );
     res.json(rowToItem(result.rows[0]));
