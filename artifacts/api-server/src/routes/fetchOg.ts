@@ -57,6 +57,21 @@ async function fetchYouTubeMeta(url: string, videoId: string): Promise<{
 
 // ── Generic OG scraper ────────────────────────────────────────────────────────
 
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)));
+}
+
 function parseOgTags(html: string): {
   title?: string;
   description?: string;
@@ -99,9 +114,12 @@ function parseOgTags(html: string): {
   const titleFallback = html
     .match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]
     ?.trim();
+
+  const rawTitle = getOg("title") ?? titleFallback;
+  const rawDescription = getOg("description");
   return {
-    title: getOg("title") ?? titleFallback,
-    description: getOg("description"),
+    title: rawTitle ? decodeHtmlEntities(rawTitle) : undefined,
+    description: rawDescription ? decodeHtmlEntities(rawDescription) : undefined,
     image: getOg("image"),
   };
 }
