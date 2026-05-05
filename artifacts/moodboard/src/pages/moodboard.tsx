@@ -568,7 +568,7 @@ export default function Moodboard() {
       </div>
 
       {/* Board canvas — stays mounted to preserve pan/zoom state */}
-      <div style={{ display: activeTab === "board" ? undefined : "none" }}>
+      <div style={{ display: activeTab === "board" ? undefined : "none", height: "100%" }}>
         <div ref={wrapperRef} className="moodboard-wrapper">
           <div ref={canvasRef} className="moodboard-canvas">
             {loading ? (

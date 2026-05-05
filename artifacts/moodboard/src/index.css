@@ -1429,7 +1429,6 @@ body {
 }
 
 .discover-card:hover {
-  transform: translateY(-3px) scale(1.008);
   box-shadow: var(--card-shadow-hover);
   border-color: var(--border-card-hover);
 }
@@ -1440,7 +1439,6 @@ body {
 }
 
 .discover-card.is-completed:hover {
-  transform: none;
   box-shadow: var(--card-shadow);
 }
 
@@ -1449,11 +1447,6 @@ body {
   width: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.4s ease;
-}
-
-.discover-card:hover .discover-card-img {
-  transform: scale(1.03);
 }
 
 .discover-card-img--movie { aspect-ratio: 2 / 3; }
