@@ -36,4 +36,10 @@ export async function initDb(): Promise<void> {
   await pool.query(`
     ALTER TABLE items ADD COLUMN IF NOT EXISTS note TEXT
   `);
+  await pool.query(`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS board TEXT NOT NULL DEFAULT 'moodboard'
+  `);
+  await pool.query(`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS meta TEXT
+  `);
 }
