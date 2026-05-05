@@ -10,18 +10,25 @@ function rowToItem(row: Record<string, unknown>) {
     url: row.url ?? undefined,
     title: row.title ?? undefined,
     subtitle: row.subtitle ?? undefined,
-    imageUrl: (row.image_url as string | null) ?? (row.image_data as string | null) ?? undefined,
+    imageUrl:
+      (row.image_url as string | null) ??
+      (row.image_data as string | null) ??
+      undefined,
     size: row.size ? Number(row.size) : undefined,
     addedAt: row.added_at,
     completed: row.completed ?? false,
     note: (row.note as string | null) ?? undefined,
+    board: (row.board as string | null) ?? "moodboard",
+    meta: (row.meta as string | null) ?? undefined,
   };
 }
 
-router.get("/items", async (_req, res) => {
+router.get("/items", async (req, res) => {
+  const board = (req.query.board as string | undefined) ?? "moodboard";
   try {
     const result = await pool.query(
-      "SELECT * FROM items ORDER BY added_at ASC",
+      "SELECT * FROM items WHERE board = $1 ORDER BY added_at ASC",
+      [board],
     );
     res.json(result.rows.map(rowToItem));
   } catch {
@@ -31,18 +38,21 @@ router.get("/items", async (_req, res) => {
 
 router.post("/items", async (req, res) => {
   const body = req.body as Record<string, string | null | undefined>;
-  const { id, type, url, title, subtitle, imageUrl, size, addedAt } = body;
+  const { id, type, url, title, subtitle, imageUrl, size, addedAt, board, meta } =
+    body;
   const note = (body.note as string | null | undefined) ?? null;
 
-  const isPhoto = type === "photo";
-  const imageUrlDb = isPhoto ? null : (imageUrl ?? null);
-  const imageDataDb = isPhoto ? (imageUrl ?? null) : null;
+  // Photos and reel thumbnails both arrive as base64 data URLs — store in image_data
+  const isDataUrl = (imageUrl ?? "").startsWith("data:");
+  const imageUrlDb = isDataUrl ? null : (imageUrl ?? null);
+  const imageDataDb = isDataUrl ? (imageUrl ?? null) : null;
 
   try {
     const result = await pool.query(
       `INSERT INTO items
-         (id, type, url, title, subtitle, image_url, size, position_x, position_y, added_at, image_data, note)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, $8, $9, $10)
+         (id, type, url, title, subtitle, image_url, size,
+          position_x, position_y, added_at, image_data, note, board, meta)
+       VALUES ($1,$2,$3,$4,$5,$6,$7, 0,0,$8,$9,$10,$11,$12)
        RETURNING *`,
       [
         id,
@@ -55,6 +65,8 @@ router.post("/items", async (req, res) => {
         addedAt ?? new Date().toISOString(),
         imageDataDb,
         note,
+        board ?? "moodboard",
+        meta ?? null,
       ],
     );
     res.json(rowToItem(result.rows[0]));
