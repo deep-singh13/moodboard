@@ -201,7 +201,7 @@ export default function Moodboard() {
     if (metaThemeColor) {
       metaThemeColor.setAttribute(
         "content",
-        storedTheme === "dark" ? "#111110" : "#F9F8F5",
+        storedTheme === "dark" ? "#0D0D0C" : "#F7F6F2",
       );
     }
 
@@ -238,7 +238,7 @@ export default function Moodboard() {
       if (metaThemeColor) {
         metaThemeColor.setAttribute(
           "content",
-          next === "dark" ? "#111110" : "#F9F8F5",
+          next === "dark" ? "#0D0D0C" : "#F7F6F2",
         );
       }
       return next;
@@ -468,6 +468,8 @@ export default function Moodboard() {
   return (
     <div className="moodboard-root" data-theme={theme}>
       <div className="moodboard-topbar">
+        <span className="topbar-wordmark">moodboard</span>
+        <div className="topbar-divider" aria-hidden="true" />
         <button className="reset-btn" onClick={resetView} title="Reset view">
           <svg
             width="14"
@@ -556,7 +558,8 @@ export default function Moodboard() {
           ) : items.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-inner">
-                <p>Your moodboard is empty — add a link or photo to begin</p>
+                <span className="empty-state-headline">Start collecting</span>
+                <p>Add a link or photo to begin building your board</p>
               </div>
             </div>
           ) : (
@@ -594,16 +597,10 @@ export default function Moodboard() {
         onClick={() => setIsModalOpen(true)}
         aria-label="Add item"
       >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M12 5v14M5 12h14" />
         </svg>
+        <span className="fab-label">Add</span>
       </button>
 
       {isModalOpen && (

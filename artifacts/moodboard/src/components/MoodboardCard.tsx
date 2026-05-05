@@ -216,6 +216,16 @@ export function MoodboardCard({
       <div className="card-body">
         {item.title && <p className="card-title">{item.title}</p>}
         {item.subtitle && <p className="card-subtitle">{item.subtitle}</p>}
+        {item.type !== "link" && (
+          <span className="card-type-badge" data-type={item.type}>
+            {item.type === "youtube" && (
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            )}
+            {item.type === "youtube" ? "YouTube" : "Substack"}
+          </span>
+        )}
       </div>
 
       {completed && (
