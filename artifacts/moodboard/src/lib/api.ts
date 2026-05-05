@@ -1,4 +1,4 @@
-import type { MoodboardItem } from "@/types";
+import type { MoodboardItem, MovieResult } from "@/types";
 
 const BASE = "/api";
 
@@ -55,4 +55,29 @@ export async function fetchOgMeta(url: string): Promise<{
   const res = await fetch(`${BASE}/fetch-og?url=${encodeURIComponent(url)}`);
   if (!res.ok) return {};
   return res.json();
+}
+
+export async function fetchMovieSearch(q: string): Promise<MovieResult[]> {
+  try {
+    const res = await fetch(
+      `${BASE}/movie-search?q=${encodeURIComponent(q)}`,
+    );
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchMovieDetail(imdbId: string): Promise<MovieResult | null> {
+  try {
+    const res = await fetch(`${BASE}/movie-detail/${encodeURIComponent(imdbId)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Empty object means detail fetch failed
+    if (!data.title) return null;
+    return data as MovieResult;
+  } catch {
+    return null;
+  }
 }
