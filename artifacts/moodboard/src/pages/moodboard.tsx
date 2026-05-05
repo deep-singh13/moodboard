@@ -11,6 +11,7 @@ import {
   patchItemComplete,
   patchItemNote,
 } from "@/lib/api";
+import Discover from "@/pages/discover";
 
 const GRID_GAP = 20;
 const COLS_SIZES = [220, 320, 420];
@@ -134,6 +135,7 @@ export default function Moodboard() {
   const [addError, setAddError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [surpriseId, setSurpriseId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"board" | "discover">("board");
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -470,24 +472,47 @@ export default function Moodboard() {
       <div className="moodboard-topbar">
         <span className="topbar-wordmark">moodboard</span>
         <div className="topbar-divider" aria-hidden="true" />
-        <button className="reset-btn" onClick={resetView} title="Reset view">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-          Reset view
-        </button>
-        <span className="item-count">
-          {items.length} {items.length === 1 ? "item" : "items"}
-        </span>
 
+        {/* Tab switcher */}
+        <div className="tab-switcher">
+          <button
+            className={`tab-btn ${activeTab === "board" ? "active" : ""}`}
+            onClick={() => setActiveTab("board")}
+          >
+            Board
+          </button>
+          <button
+            className={`tab-btn ${activeTab === "discover" ? "active" : ""}`}
+            onClick={() => setActiveTab("discover")}
+          >
+            Discover
+          </button>
+        </div>
+
+        {/* Board-only controls */}
+        {activeTab === "board" && (
+          <>
+            <button className="reset-btn" onClick={resetView} title="Reset view">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              Reset view
+            </button>
+            <span className="item-count">
+              {items.length} {items.length === 1 ? "item" : "items"}
+            </span>
+          </>
+        )}
+
+        {/* Search — shared, always visible */}
         <div className="search-wrap">
           <svg
             className="search-icon"
@@ -524,84 +549,96 @@ export default function Moodboard() {
           )}
         </div>
 
-        <button
-          className="surprise-btn"
-          onClick={handleSurpriseMe}
-          disabled={items.length === 0}
-          title="Highlight a random tile"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-          <span className="surprise-btn-label">Surprise me</span>
-        </button>
+        {/* Board-only: Surprise Me */}
+        {activeTab === "board" && (
+          <button
+            className="surprise-btn"
+            onClick={handleSurpriseMe}
+            disabled={items.length === 0}
+            title="Highlight a random tile"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <span className="surprise-btn-label">Surprise me</span>
+          </button>
+        )}
 
         <ThemeToggle theme={theme} onToggle={toggleTheme} />
       </div>
 
-      <div ref={wrapperRef} className="moodboard-wrapper">
-        <div ref={canvasRef} className="moodboard-canvas">
-          {loading ? (
-            <div className="empty-state">
-              <div className="empty-state-inner canvas-loading">
-                <span className="loading-dot" />
-                <span className="loading-dot" />
-                <span className="loading-dot" />
+      {/* Board canvas — stays mounted to preserve pan/zoom state */}
+      <div style={{ display: activeTab === "board" ? undefined : "none" }}>
+        <div ref={wrapperRef} className="moodboard-wrapper">
+          <div ref={canvasRef} className="moodboard-canvas">
+            {loading ? (
+              <div className="empty-state">
+                <div className="empty-state-inner canvas-loading">
+                  <span className="loading-dot" />
+                  <span className="loading-dot" />
+                  <span className="loading-dot" />
+                </div>
               </div>
-            </div>
-          ) : loadError ? (
-            <div className="empty-state">
-              <div className="empty-state-inner">
-                <p>Couldn't connect to the server. Please refresh.</p>
+            ) : loadError ? (
+              <div className="empty-state">
+                <div className="empty-state-inner">
+                  <p>Couldn't connect to the server. Please refresh.</p>
+                </div>
               </div>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-inner">
-                <span className="empty-state-headline">Start collecting</span>
-                <p>Add a link or photo to begin building your board</p>
+            ) : items.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-inner">
+                  <span className="empty-state-headline">Start collecting</span>
+                  <p>Add a link or photo to begin building your board</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            displayedItems.map((item) => (
-              <MoodboardCard
-                key={item.id}
-                item={item}
-                onRemove={removeItem}
-                onToggleComplete={toggleComplete}
-                onPhotoClick={setLightboxSrc}
-                isHighlighted={item.id === surpriseId}
-                onUpdateNote={updateNote}
-              />
-            ))
-          )}
-        </div>
-      </div>
-
-      {showSearchEmpty && (
-        <div className="search-empty-state">
-          <div className="search-empty-inner">
-            <p>No results for &ldquo;{searchQuery}&rdquo;</p>
+            ) : (
+              displayedItems.map((item) => (
+                <MoodboardCard
+                  key={item.id}
+                  item={item}
+                  onRemove={removeItem}
+                  onToggleComplete={toggleComplete}
+                  onPhotoClick={setLightboxSrc}
+                  isHighlighted={item.id === surpriseId}
+                  onUpdateNote={updateNote}
+                />
+              ))
+            )}
           </div>
         </div>
-      )}
 
-      {showHint && (
-        <div className={`drag-hint ${hintFading ? "fading" : ""}`}>
-          Drag to explore
-        </div>
-      )}
+        {showSearchEmpty && (
+          <div className="search-empty-state">
+            <div className="search-empty-inner">
+              <p>No results for &ldquo;{searchQuery}&rdquo;</p>
+            </div>
+          </div>
+        )}
 
-      <button
-        className="fab-btn"
-        onClick={() => setIsModalOpen(true)}
-        aria-label="Add item"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-        <span className="fab-label">Add</span>
-      </button>
+        {showHint && (
+          <div className={`drag-hint ${hintFading ? "fading" : ""}`}>
+            Drag to explore
+          </div>
+        )}
+
+        {/* Board FAB */}
+        <button
+          className="fab-btn"
+          onClick={() => setIsModalOpen(true)}
+          aria-label="Add item"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          <span className="fab-label">Add</span>
+        </button>
+      </div>
+
+      {/* Discover page — manages its own FAB and modal */}
+      {activeTab === "discover" && (
+        <Discover searchQuery={searchQuery} />
+      )}
 
       {isModalOpen && (
         <AddItemModal onClose={() => setIsModalOpen(false)} onAdd={addItem} />

@@ -2,8 +2,8 @@ import type { MoodboardItem, MovieResult } from "@/types";
 
 const BASE = "/api";
 
-export async function fetchItems(): Promise<MoodboardItem[]> {
-  const res = await fetch(`${BASE}/items`);
+export async function fetchItems(board: string = "moodboard"): Promise<MoodboardItem[]> {
+  const res = await fetch(`${BASE}/items?board=${encodeURIComponent(board)}`);
   if (!res.ok) throw new Error(`Failed to fetch items: ${res.status}`);
   return res.json();
 }
