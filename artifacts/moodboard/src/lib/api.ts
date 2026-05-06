@@ -64,6 +64,7 @@ export async function fetchOgMeta(url: string): Promise<{
   description?: string;
   image?: string;
   fetchFailed?: boolean;
+  blockedHost?: boolean;
 }> {
   try {
     const res = await fetch(`${BASE}/fetch-og?url=${encodeURIComponent(url)}`);
