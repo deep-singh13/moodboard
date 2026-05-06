@@ -6,6 +6,7 @@ interface DiscoverCardProps {
   onRemove: (id: string) => void;
   onToggleComplete: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
+  onEdit?: (id: string) => void;
 }
 
 function CheckIcon() {
@@ -21,6 +22,15 @@ function PencilIcon() {
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
     </svg>
   );
 }
@@ -60,7 +70,7 @@ function getTypeIcon(type: string): React.ReactNode {
   );
 }
 
-export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote }: DiscoverCardProps) {
+export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote, onEdit }: DiscoverCardProps) {
   const [imgError, setImgError] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [draftNote, setDraftNote] = useState("");
@@ -101,6 +111,11 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote }:
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleComplete(item.id);
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit?.(item.id);
   };
 
   const openNoteEdit = (e: React.MouseEvent) => {
@@ -166,10 +181,10 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote }:
         </span>
       </div>
 
-      {/* Status badge top-left */}
-      <div className={`discover-status-badge ${completed ? "discover-status-badge--done" : "discover-status-badge--want"}`}>
-        {getStatusLabel(item.type, completed)}
-      </div>
+      {/* Edit button top-left */}
+      <button className="discover-edit-btn" onClick={handleEdit} aria-label="Edit item">
+        <EditIcon />
+      </button>
 
       {/* Remove button top-right */}
       <button className="card-remove" onClick={handleRemove} aria-label="Remove">

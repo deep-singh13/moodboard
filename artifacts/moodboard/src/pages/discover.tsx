@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import type { MoodboardItem } from "@/types";
-import { fetchItems, createItem, deleteItem, patchItemComplete, patchItemNote } from "@/lib/api";
+import { fetchItems, createItem, deleteItem, patchItemComplete, patchItemNote, patchItemEdit } from "@/lib/api";
 import { DiscoverCard } from "@/components/DiscoverCard";
 import { AddDiscoverModal } from "@/components/AddDiscoverModal";
+import { EditDiscoverItemModal } from "@/components/EditDiscoverItemModal";
 
 type TypeFilter = "all" | "movie" | "reel" | "link";
 type StatusFilter = "all" | "want" | "done";
@@ -43,6 +44,8 @@ export default function Discover({ searchQuery }: DiscoverProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [addError, setAddError] = useState<string | null>(null);
+  const [thumbToast, setThumbToast] = useState(false);
+  const [editItem, setEditItem] = useState<MoodboardItem | null>(null);
 
   useEffect(() => {
     fetchItems("discover")
@@ -52,6 +55,11 @@ export default function Discover({ searchQuery }: DiscoverProps) {
 
   const addItem = useCallback((item: MoodboardItem) => {
     setItems((prev) => [...prev, item]);
+    // Show thumbnail toast for reels and links that came in without an image
+    if (!item.imageUrl && (item.type === "reel" || item.type === "link")) {
+      setThumbToast(true);
+      setTimeout(() => setThumbToast(false), 5000);
+    }
     createItem(item).catch(() => {
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       setAddError("Couldn't save — check your connection.");
@@ -81,6 +89,23 @@ export default function Discover({ searchQuery }: DiscoverProps) {
     );
     patchItemNote(id, note).catch(() => {});
   }, []);
+
+  const updateItem = useCallback(
+    (id: string, updates: { title?: string | null; imageUrl?: string | null }) => {
+      setItems((prev) =>
+        prev.map((i) => {
+          if (i.id !== id) return i;
+          return {
+            ...i,
+            ...(("title" in updates) && { title: updates.title ?? undefined }),
+            ...(("imageUrl" in updates) && { imageUrl: updates.imageUrl ?? undefined }),
+          };
+        }),
+      );
+      patchItemEdit(id, updates).catch(() => {});
+    },
+    [],
+  );
 
   const displayed = items.filter((item) => {
     if (typeFilter !== "all" && item.type !== typeFilter) return false;
@@ -164,6 +189,10 @@ export default function Discover({ searchQuery }: DiscoverProps) {
                   onRemove={removeItem}
                   onToggleComplete={toggleComplete}
                   onUpdateNote={updateNote}
+                  onEdit={(id) => {
+                    const found = items.find((i) => i.id === id);
+                    if (found) setEditItem(found);
+                  }}
                 />
               ))}
             </div>
@@ -183,8 +212,25 @@ export default function Discover({ searchQuery }: DiscoverProps) {
         <AddDiscoverModal onClose={() => setIsModalOpen(false)} onAdd={addItem} />
       )}
 
+      {editItem && (
+        <EditDiscoverItemModal
+          item={editItem}
+          onClose={() => setEditItem(null)}
+          onSave={(updates) => {
+            updateItem(editItem.id, updates);
+            setEditItem(null);
+          }}
+        />
+      )}
+
       {addError && (
         <div className="error-toast" role="alert">{addError}</div>
+      )}
+
+      {thumbToast && (
+        <div className="thumb-toast" role="status">
+          No thumbnail found — hover the card and tap <strong>✎</strong> to add one manually.
+        </div>
       )}
     </div>
   );

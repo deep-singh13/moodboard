@@ -47,14 +47,31 @@ export async function patchItemNote(
   if (!res.ok) throw new Error(`Failed to update note: ${res.status}`);
 }
 
+export async function patchItemEdit(
+  id: string,
+  updates: { title?: string | null; imageUrl?: string | null },
+): Promise<void> {
+  const res = await fetch(`${BASE}/items/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error(`Failed to update item: ${res.status}`);
+}
+
 export async function fetchOgMeta(url: string): Promise<{
   title?: string;
   description?: string;
   image?: string;
+  fetchFailed?: boolean;
 }> {
-  const res = await fetch(`${BASE}/fetch-og?url=${encodeURIComponent(url)}`);
-  if (!res.ok) return {};
-  return res.json();
+  try {
+    const res = await fetch(`${BASE}/fetch-og?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return { fetchFailed: true };
+    return res.json();
+  } catch {
+    return { fetchFailed: true };
+  }
 }
 
 export async function fetchMovieSearch(q: string): Promise<MovieResult[]> {

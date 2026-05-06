@@ -120,6 +120,12 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
         if (!url) { setError("Please enter a URL."); setLoading(false); return; }
         if (!/^https?:\/\//i.test(url)) url = "https://" + url;
         const username = reelCaption.trim() || extractInstagramUsername(url);
+        // Auto-fetch thumbnail if none manually uploaded
+        let autoThumb: string | undefined = reelThumbnail || undefined;
+        if (!autoThumb) {
+          const og = await fetchOgMeta(url);
+          autoThumb = og.image;
+        }
         item = {
           id: crypto.randomUUID(),
           type: "reel",
@@ -127,7 +133,7 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
           url,
           title: username,
           subtitle: "Instagram",
-          imageUrl: reelThumbnail || undefined,
+          imageUrl: autoThumb,
           meta: JSON.stringify({ username, reel_url: url }),
           size: 320,
           addedAt: new Date().toISOString(),

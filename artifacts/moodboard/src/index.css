@@ -1415,6 +1415,12 @@ body {
   .discover-page { padding: 90px 14px 100px; }
 }
 
+/* ── Discover card hover — show/hide action buttons ── */
+
+.discover-card:hover .card-remove  { opacity: 1; }
+.discover-card:hover .card-note    { opacity: 1; }
+.discover-card:hover .note-dot     { opacity: 0; }
+
 /* ── Discover card ── */
 
 .discover-card {
@@ -1681,4 +1687,80 @@ body {
 .modal-upload-btn.has-file {
   border-color: var(--bg-btn-add);
   color: var(--bg-btn-add);
+}
+
+/* ── Discover card — edit button (top-left, hover) ── */
+
+.discover-edit-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 26px;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.discover-edit-btn:hover {
+  background: rgba(60, 60, 60, 0.85);
+  transform: scale(1.1);
+}
+
+.discover-card:hover .discover-edit-btn { opacity: 1; }
+
+/* ── Thumbnail missing toast ── */
+
+.thumb-toast {
+  position: fixed;
+  bottom: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(24, 24, 24, 0.96);
+  color: #fff;
+  padding: 11px 20px;
+  border-radius: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 360px;
+  width: max-content;
+  text-align: center;
+  z-index: 300;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: toastSlideUp 0.25s ease;
+}
+
+@keyframes toastSlideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Edit discover item modal — thumbnail preview ── */
+
+.edit-modal-thumb-wrap {
+  margin-bottom: 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  max-height: 220px;
+  background: var(--bg-skeleton);
+}
+
+.edit-modal-thumb {
+  width: 100%;
+  object-fit: cover;
+  max-height: 220px;
+  display: block;
 }

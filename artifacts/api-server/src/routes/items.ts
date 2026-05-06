@@ -85,7 +85,12 @@ router.delete("/items/:id", async (req, res) => {
 });
 
 router.patch("/items/:id", async (req, res) => {
-  const body = req.body as { completed?: boolean; note?: string | null };
+  const body = req.body as {
+    completed?: boolean;
+    note?: string | null;
+    title?: string | null;
+    imageUrl?: string | null;
+  };
   try {
     if (body.completed !== undefined) {
       await pool.query("UPDATE items SET completed = $1 WHERE id = $2", [
@@ -98,6 +103,27 @@ router.patch("/items/:id", async (req, res) => {
         body.note ?? null,
         req.params.id,
       ]);
+    }
+    if ("title" in body) {
+      await pool.query("UPDATE items SET title = $1 WHERE id = $2", [
+        body.title ?? null,
+        req.params.id,
+      ]);
+    }
+    if ("imageUrl" in body) {
+      const imageUrl = body.imageUrl ?? null;
+      const isDataUrl = typeof imageUrl === "string" && imageUrl.startsWith("data:");
+      if (isDataUrl) {
+        await pool.query(
+          "UPDATE items SET image_data = $1, image_url = NULL WHERE id = $2",
+          [imageUrl, req.params.id],
+        );
+      } else {
+        await pool.query(
+          "UPDATE items SET image_url = $1, image_data = NULL WHERE id = $2",
+          [imageUrl, req.params.id],
+        );
+      }
     }
     res.json({ ok: true });
   } catch {
