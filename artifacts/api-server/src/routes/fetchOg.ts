@@ -2,16 +2,8 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 
-// Realistic Chrome 120 on Windows — used for most generic sites
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-// Meta's own link-preview crawler — Instagram / Facebook whitelist this UA
-// so that Messenger / WhatsApp can generate rich link previews. Using it
-// causes Instagram to return the real post/reel og:image instead of the
-// generic app logo it sends to ordinary browser UAs.
-const FACEBOOK_CRAWLER_UA =
-  "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
 
 // ── YouTube helpers ───────────────────────────────────────────────────────────
 
@@ -51,7 +43,10 @@ async function fetchYouTubeMeta(url: string, videoId: string): Promise<{
   return { image: thumbnail };
 }
 
-// ── Instagram helpers ─────────────────────────────────────────────────────────
+// ── Instagram via oEmbed API ──────────────────────────────────────────────────
+// The Graph API oEmbed endpoint returns a signed CDN URL for the thumbnail.
+// We immediately download and base64-encode that image so it never expires in
+// the user's database (Instagram CDN URLs have short TTLs of ~24-72 hours).
 
 function isInstagramUrl(url: string): boolean {
   try {
@@ -62,97 +57,24 @@ function isInstagramUrl(url: string): boolean {
   }
 }
 
-// The Instagram app logo is served from the main domain's /static/ path.
-// Real post/reel thumbnails come from scontent CDN subdomains, which must NOT
-// be blocked — they are the URLs we actually want to return.
-function isInstagramLogoUrl(imageUrl: string): boolean {
+/** Download an image URL and return it as a base64 data URL for permanent storage. */
+async function downloadAsDataUrl(imageUrl: string): Promise<string | null> {
   try {
-    const host = new URL(imageUrl).hostname;
-    // Main domain = favicon/icon/logo assets only; CDN subdomains = real media
-    return host === "www.instagram.com" || host === "instagram.com";
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Primary approach: facebookexternalhit UA.
- * Instagram must whitelist this crawler so Messenger/WhatsApp can generate
- * link previews. It receives the real og:image, not the app logo.
- */
-async function tryInstagramScrape(url: string): Promise<{
-  title?: string;
-  image?: string;
-} | null> {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": FACEBOOK_CRAWLER_UA,
-        Accept: "text/html,application/xhtml+xml,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      signal: AbortSignal.timeout(10000),
+    const res = await fetch(imageUrl, {
+      headers: { "User-Agent": BROWSER_UA },
+      signal: AbortSignal.timeout(15000),
     });
-    if (!response.ok) return null;
-
-    const html = await response.text();
-
-    // Extract og:image
-    const ogImage =
-      extractMetaContent(html, "property", "og:image") ??
-      extractMetaContent(html, "property", "og:image:url") ??
-      extractMetaContent(html, "name", "twitter:image");
-
-    // Reject if we got the generic app logo instead of real content
-    if (!ogImage || isInstagramLogoUrl(ogImage)) return null;
-
-    const ogTitle =
-      extractMetaContent(html, "property", "og:title") ??
-      extractMetaContent(html, "name", "twitter:title");
-
-    return { title: ogTitle, image: ogImage };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Secondary approach: Instagram oEmbed via Graph API.
- * Requires INSTAGRAM_APP_ID + INSTAGRAM_APP_SECRET env vars (free Facebook
- * developer app). The App Access Token never expires and needs no user auth.
- * Setup: https://developers.facebook.com/apps → create app → copy App ID + Secret
- */
-async function tryInstagramOEmbed(url: string): Promise<{
-  title?: string;
-  image?: string;
-} | null> {
-  const appId = process.env.INSTAGRAM_APP_ID;
-  const appSecret = process.env.INSTAGRAM_APP_SECRET;
-  if (!appId || !appSecret) return null;
-
-  try {
-    const token = `${appId}|${appSecret}`;
-    const apiUrl =
-      `https://graph.facebook.com/v18.0/instagram_oembed` +
-      `?url=${encodeURIComponent(url)}` +
-      `&access_token=${encodeURIComponent(token)}` +
-      `&omitscript=true`;
-
-    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return null;
-
-    const data = (await res.json()) as {
-      thumbnail_url?: string;
-      author_name?: string;
-      title?: string;
-    };
-
-    if (!data.thumbnail_url) return null;
-    return {
-      title: data.author_name ? `@${data.author_name}` : (data.title ?? undefined),
-      image: data.thumbnail_url,
-    };
-  } catch {
+    if (!res.ok) {
+      console.error(`[instagram] Failed to download thumbnail: HTTP ${res.status} ${imageUrl}`);
+      return null;
+    }
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    const buffer = await res.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+    console.log(`[instagram] Downloaded thumbnail: ${buffer.byteLength} bytes, type=${contentType}`);
+    return `data:${contentType};base64,${base64}`;
+  } catch (err) {
+    console.error(`[instagram] Thumbnail download error: ${err}`);
     return null;
   }
 }
@@ -162,19 +84,71 @@ async function fetchInstagramMeta(url: string): Promise<{
   image?: string;
   fetchFailed?: boolean;
 }> {
-  // Try facebookexternalhit scrape first — no credentials needed
-  const scraped = await tryInstagramScrape(url);
-  if (scraped?.image) return scraped;
+  const appId = process.env.INSTAGRAM_APP_ID;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET;
 
-  // Fall back to the official oEmbed API if credentials are configured
-  const oembed = await tryInstagramOEmbed(url);
-  if (oembed?.image) return oembed;
+  // Credentials check — log clearly so Render logs show the issue
+  if (!appId || !appSecret) {
+    console.error("[instagram] INSTAGRAM_APP_ID or INSTAGRAM_APP_SECRET not set — cannot fetch thumbnail");
+    return { fetchFailed: true };
+  }
 
-  // Both methods failed (private account, changed UA detection, etc.)
-  return { fetchFailed: true };
+  console.log(`[instagram] Fetching oEmbed for: ${url}`);
+  console.log(`[instagram] Using App ID: ${appId.slice(0, 6)}...`);
+
+  const token = `${appId}|${appSecret}`;
+  const apiUrl =
+    `https://graph.facebook.com/v18.0/instagram_oembed` +
+    `?url=${encodeURIComponent(url)}` +
+    `&access_token=${encodeURIComponent(token)}` +
+    `&omitscript=true`;
+
+  try {
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(10000) });
+    const body = await res.text();
+
+    if (!res.ok) {
+      console.error(`[instagram] oEmbed API error: HTTP ${res.status} — ${body}`);
+      return { fetchFailed: true };
+    }
+
+    const data = JSON.parse(body) as {
+      thumbnail_url?: string;
+      author_name?: string;
+      title?: string;
+      error?: { message: string; type: string; code: number };
+    };
+
+    // The API can return HTTP 200 but with an error object inside
+    if (data.error) {
+      console.error(`[instagram] oEmbed API returned error: ${JSON.stringify(data.error)}`);
+      return { fetchFailed: true };
+    }
+
+    console.log(`[instagram] oEmbed success — thumbnail_url: ${data.thumbnail_url ?? "none"}, author: ${data.author_name ?? "none"}`);
+
+    if (!data.thumbnail_url) {
+      console.warn("[instagram] oEmbed returned no thumbnail_url");
+      return {
+        title: data.author_name ? `@${data.author_name}` : undefined,
+        fetchFailed: true,
+      };
+    }
+
+    // Download the thumbnail immediately and store as base64.
+    // Instagram CDN URLs expire — the data URL lasts forever.
+    const dataUrl = await downloadAsDataUrl(data.thumbnail_url);
+    return {
+      title: data.author_name ? `@${data.author_name}` : (data.title ?? undefined),
+      image: dataUrl ?? data.thumbnail_url, // fall back to raw URL if download failed
+    };
+  } catch (err) {
+    console.error(`[instagram] oEmbed fetch threw: ${err}`);
+    return { fetchFailed: true };
+  }
 }
 
-// ── Generic OG scraper helpers ────────────────────────────────────────────────
+// ── Generic OG scraper ────────────────────────────────────────────────────────
 
 function extractMetaContent(
   html: string,
@@ -242,7 +216,6 @@ function parseOgTags(
     extractMetaContent(html, "name", "twitter:image") ??
     extractMetaContent(html, "name", "twitter:image:src");
 
-  // Fallback 1: apple-touch-icon
   if (!image) {
     const m =
       html.match(/<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i) ??
@@ -253,7 +226,6 @@ function parseOgTags(
     }
   }
 
-  // Fallback 2: first <img> with width or height >= 200
   if (!image) {
     const imgRe = /<img\b([^>]+)>/gi;
     let m: RegExpExecArray | null;
@@ -277,7 +249,7 @@ function parseOgTags(
   };
 }
 
-// ── Route ─────────────────────────────────────────────────────────────────────
+// ── Routes ────────────────────────────────────────────────────────────────────
 
 router.get("/fetch-og", async (req, res) => {
   const url = req.query.url as string | undefined;
@@ -286,14 +258,12 @@ router.get("/fetch-og", async (req, res) => {
     return;
   }
 
-  // Instagram: use facebookexternalhit UA + oEmbed API fallback
   if (isInstagramUrl(url)) {
     const meta = await fetchInstagramMeta(url);
     res.json(meta);
     return;
   }
 
-  // YouTube: oEmbed + CDN thumbnail (no scraping needed)
   const videoId = extractYouTubeId(url);
   if (videoId) {
     const meta = await fetchYouTubeMeta(url, videoId);
@@ -301,7 +271,6 @@ router.get("/fetch-og", async (req, res) => {
     return;
   }
 
-  // Everything else: scrape with realistic browser UA
   try {
     const response = await fetch(url, {
       headers: {
@@ -325,6 +294,59 @@ router.get("/fetch-og", async (req, res) => {
   } catch {
     res.json({ fetchFailed: true });
   }
+});
+
+/**
+ * Debug endpoint — hit this in a browser or curl to see exactly what the
+ * oEmbed API returns for any Instagram URL without adding a card.
+ *
+ * Usage: GET /api/debug-instagram?url=https://www.instagram.com/reel/ABC123/
+ */
+router.get("/debug-instagram", async (req, res) => {
+  const url = req.query.url as string | undefined;
+  if (!url) {
+    res.status(400).json({ error: "url query parameter is required" });
+    return;
+  }
+
+  const appId = process.env.INSTAGRAM_APP_ID;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+
+  const diagnosis: Record<string, unknown> = {
+    url,
+    INSTAGRAM_APP_ID_set: !!appId,
+    INSTAGRAM_APP_SECRET_set: !!appSecret,
+    app_id_preview: appId ? `${appId.slice(0, 6)}...` : null,
+  };
+
+  if (!appId || !appSecret) {
+    res.json({ ...diagnosis, error: "credentials_missing" });
+    return;
+  }
+
+  const token = `${appId}|${appSecret}`;
+  const apiUrl =
+    `https://graph.facebook.com/v18.0/instagram_oembed` +
+    `?url=${encodeURIComponent(url)}` +
+    `&access_token=${encodeURIComponent(token)}` +
+    `&omitscript=true`;
+
+  diagnosis.api_url_called = apiUrl.replace(token, "APP_ID|APP_SECRET");
+
+  try {
+    const apiRes = await fetch(apiUrl, { signal: AbortSignal.timeout(10000) });
+    const body = await apiRes.text();
+    diagnosis.http_status = apiRes.status;
+    try {
+      diagnosis.api_response = JSON.parse(body);
+    } catch {
+      diagnosis.api_response_raw = body;
+    }
+  } catch (err) {
+    diagnosis.fetch_error = String(err);
+  }
+
+  res.json(diagnosis);
 });
 
 export default router;
