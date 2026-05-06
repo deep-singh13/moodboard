@@ -43,10 +43,19 @@ async function fetchYouTubeMeta(url: string, videoId: string): Promise<{
   return { image: thumbnail };
 }
 
-// ── Instagram via oEmbed API ──────────────────────────────────────────────────
-// The Graph API oEmbed endpoint returns a signed CDN URL for the thumbnail.
-// We immediately download and base64-encode that image so it never expires in
-// the user's database (Instagram CDN URLs have short TTLs of ~24-72 hours).
+// ── Instagram thumbnail fetching ──────────────────────────────────────────────
+//
+// Meta's oEmbed API requires App Review (code 10) — not viable for a new app.
+// Direct scraping returns the generic app logo from datacenter IPs.
+//
+// Solution: RapidAPI Instagram Scraper routes requests through residential
+// proxies, so Instagram can't block them. Free tier = 500 req/month.
+//
+// Setup (one-time, 2 minutes):
+//   1. Sign up at https://rapidapi.com (free)
+//   2. Search "Instagram Scraper" → subscribe to the free plan
+//   3. Copy your RapidAPI key
+//   4. Add RAPIDAPI_KEY=<your_key> to Render environment variables
 
 function isInstagramUrl(url: string): boolean {
   try {
@@ -57,7 +66,8 @@ function isInstagramUrl(url: string): boolean {
   }
 }
 
-/** Download an image URL and return it as a base64 data URL for permanent storage. */
+/** Download an image URL and return it as a base64 data URL for permanent storage.
+ *  Instagram CDN URLs expire after ~24-72 hours — base64 lasts forever. */
 async function downloadAsDataUrl(imageUrl: string): Promise<string | null> {
   try {
     const res = await fetch(imageUrl, {
@@ -65,18 +75,63 @@ async function downloadAsDataUrl(imageUrl: string): Promise<string | null> {
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      console.error(`[instagram] Failed to download thumbnail: HTTP ${res.status} ${imageUrl}`);
+      console.error(`[instagram] thumbnail download failed: HTTP ${res.status}`);
       return null;
     }
     const contentType = res.headers.get("content-type") ?? "image/jpeg";
     const buffer = await res.arrayBuffer();
     const base64 = Buffer.from(buffer).toString("base64");
-    console.log(`[instagram] Downloaded thumbnail: ${buffer.byteLength} bytes, type=${contentType}`);
+    console.log(`[instagram] thumbnail downloaded: ${buffer.byteLength} bytes, type=${contentType}`);
     return `data:${contentType};base64,${base64}`;
   } catch (err) {
-    console.error(`[instagram] Thumbnail download error: ${err}`);
+    console.error(`[instagram] thumbnail download error: ${err}`);
     return null;
   }
+}
+
+/** Extract the best thumbnail candidate from a RapidAPI Instagram post response. */
+function extractRapidApiThumbnail(data: Record<string, unknown>): string | null {
+  // Most scrapers nest data under data.data or data directly
+  const root = (data.data ?? data) as Record<string, unknown>;
+
+  // Post/reel item may be at root.items[0] or root.item or root directly
+  const itemsArr = Array.isArray(root.items) ? root.items : null;
+  const item = (itemsArr?.[0] ?? root.item ?? root) as Record<string, unknown> | null;
+  if (!item) return null;
+
+  // image_versions2.candidates → sorted largest first
+  const candidates = (item.image_versions2 as Record<string, unknown> | undefined)
+    ?.candidates as Array<{ url?: string; width?: number }> | undefined;
+  if (candidates?.length) {
+    // Pick the widest candidate (first is usually largest)
+    return (candidates[0].url as string) ?? null;
+  }
+
+  // Carousel media: first node's thumbnail
+  const carouselMedia = item.carousel_media as Array<Record<string, unknown>> | undefined;
+  if (carouselMedia?.length) {
+    const first = carouselMedia[0];
+    const c2 = (first.image_versions2 as Record<string, unknown> | undefined)
+      ?.candidates as Array<{ url?: string }> | undefined;
+    if (c2?.[0]?.url) return c2[0].url as string;
+  }
+
+  // Some APIs return thumbnail_url directly
+  if (typeof item.thumbnail_url === "string") return item.thumbnail_url;
+  if (typeof (root as Record<string, unknown>).thumbnail_url === "string") {
+    return (root as Record<string, unknown>).thumbnail_url as string;
+  }
+
+  return null;
+}
+
+/** Extract username from a RapidAPI Instagram post response. */
+function extractRapidApiAuthor(data: Record<string, unknown>): string | null {
+  const root = (data.data ?? data) as Record<string, unknown>;
+  const itemsArr = Array.isArray(root.items) ? root.items : null;
+  const item = (itemsArr?.[0] ?? root.item ?? root) as Record<string, unknown> | null;
+  const user = item?.user as Record<string, unknown> | undefined;
+  return (user?.username as string) ?? null;
 }
 
 async function fetchInstagramMeta(url: string): Promise<{
@@ -84,66 +139,65 @@ async function fetchInstagramMeta(url: string): Promise<{
   image?: string;
   fetchFailed?: boolean;
 }> {
-  const appId = process.env.INSTAGRAM_APP_ID;
-  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  const rapidApiKey = process.env.RAPIDAPI_KEY;
 
-  // Credentials check — log clearly so Render logs show the issue
-  if (!appId || !appSecret) {
-    console.error("[instagram] INSTAGRAM_APP_ID or INSTAGRAM_APP_SECRET not set — cannot fetch thumbnail");
+  if (!rapidApiKey) {
+    console.error("[instagram] RAPIDAPI_KEY not set — see setup instructions in fetchOg.ts");
     return { fetchFailed: true };
   }
 
-  console.log(`[instagram] Fetching oEmbed for: ${url}`);
-  console.log(`[instagram] Using App ID: ${appId.slice(0, 6)}...`);
+  console.log(`[instagram] fetching via RapidAPI: ${url}`);
 
-  const token = `${appId}|${appSecret}`;
-  const apiUrl =
-    `https://graph.facebook.com/v18.0/instagram_oembed` +
-    `?url=${encodeURIComponent(url)}` +
-    `&access_token=${encodeURIComponent(token)}` +
-    `&omitscript=true`;
+  // Extract shortcode to support both /reel/ and /p/ URLs
+  const shortcodeMatch = url.match(/instagram\.com\/(?:reel|p|tv)\/([A-Za-z0-9_-]+)/);
+  const shortcodeOrUrl = shortcodeMatch?.[1] ?? url;
+
+  const apiUrl = `https://instagram-scraper-api2.p.rapidapi.com/v1/post_info?code_or_id_or_url=${encodeURIComponent(shortcodeOrUrl)}`;
 
   try {
-    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(10000) });
+    const res = await fetch(apiUrl, {
+      headers: {
+        "X-RapidAPI-Key": rapidApiKey,
+        "X-RapidAPI-Host": "instagram-scraper-api2.p.rapidapi.com",
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+
     const body = await res.text();
 
     if (!res.ok) {
-      console.error(`[instagram] oEmbed API error: HTTP ${res.status} — ${body}`);
+      console.error(`[instagram] RapidAPI HTTP ${res.status}: ${body.slice(0, 300)}`);
       return { fetchFailed: true };
     }
 
-    const data = JSON.parse(body) as {
-      thumbnail_url?: string;
-      author_name?: string;
-      title?: string;
-      error?: { message: string; type: string; code: number };
-    };
-
-    // The API can return HTTP 200 but with an error object inside
-    if (data.error) {
-      console.error(`[instagram] oEmbed API returned error: ${JSON.stringify(data.error)}`);
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      console.error(`[instagram] RapidAPI non-JSON response: ${body.slice(0, 300)}`);
       return { fetchFailed: true };
     }
 
-    console.log(`[instagram] oEmbed success — thumbnail_url: ${data.thumbnail_url ?? "none"}, author: ${data.author_name ?? "none"}`);
+    console.log(`[instagram] RapidAPI raw response keys: ${Object.keys(data).join(", ")}`);
 
-    if (!data.thumbnail_url) {
-      console.warn("[instagram] oEmbed returned no thumbnail_url");
-      return {
-        title: data.author_name ? `@${data.author_name}` : undefined,
-        fetchFailed: true,
-      };
+    const thumbnailUrl = extractRapidApiThumbnail(data);
+    const author = extractRapidApiAuthor(data);
+
+    console.log(`[instagram] thumbnail_url=${thumbnailUrl ?? "none"}, author=${author ?? "none"}`);
+
+    if (!thumbnailUrl) {
+      console.warn("[instagram] RapidAPI returned no usable thumbnail");
+      return { title: author ? `@${author}` : undefined, fetchFailed: true };
     }
 
-    // Download the thumbnail immediately and store as base64.
-    // Instagram CDN URLs expire — the data URL lasts forever.
-    const dataUrl = await downloadAsDataUrl(data.thumbnail_url);
+    // Download immediately — CDN URLs from Instagram expire in ~24-72 hrs
+    const dataUrl = await downloadAsDataUrl(thumbnailUrl);
     return {
-      title: data.author_name ? `@${data.author_name}` : (data.title ?? undefined),
-      image: dataUrl ?? data.thumbnail_url, // fall back to raw URL if download failed
+      title: author ? `@${author}` : undefined,
+      image: dataUrl ?? thumbnailUrl,
     };
   } catch (err) {
-    console.error(`[instagram] oEmbed fetch threw: ${err}`);
+    console.error(`[instagram] RapidAPI fetch threw: ${err}`);
     return { fetchFailed: true };
   }
 }
@@ -297,8 +351,8 @@ router.get("/fetch-og", async (req, res) => {
 });
 
 /**
- * Debug endpoint — hit this in a browser or curl to see exactly what the
- * oEmbed API returns for any Instagram URL without adding a card.
+ * Debug endpoint — call this to see exactly what RapidAPI returns for an
+ * Instagram URL without adding a card to the moodboard.
  *
  * Usage: GET /api/debug-instagram?url=https://www.instagram.com/reel/ABC123/
  */
@@ -309,38 +363,44 @@ router.get("/debug-instagram", async (req, res) => {
     return;
   }
 
-  const appId = process.env.INSTAGRAM_APP_ID;
-  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  const rapidApiKey = process.env.RAPIDAPI_KEY;
 
   const diagnosis: Record<string, unknown> = {
     url,
-    INSTAGRAM_APP_ID_set: !!appId,
-    INSTAGRAM_APP_SECRET_set: !!appSecret,
-    app_id_preview: appId ? `${appId.slice(0, 6)}...` : null,
+    RAPIDAPI_KEY_set: !!rapidApiKey,
+    key_preview: rapidApiKey ? `${rapidApiKey.slice(0, 8)}...` : null,
   };
 
-  if (!appId || !appSecret) {
-    res.json({ ...diagnosis, error: "credentials_missing" });
+  if (!rapidApiKey) {
+    res.json({ ...diagnosis, error: "RAPIDAPI_KEY not set in environment" });
     return;
   }
 
-  const token = `${appId}|${appSecret}`;
-  const apiUrl =
-    `https://graph.facebook.com/v18.0/instagram_oembed` +
-    `?url=${encodeURIComponent(url)}` +
-    `&access_token=${encodeURIComponent(token)}` +
-    `&omitscript=true`;
+  const shortcodeMatch = url.match(/instagram\.com\/(?:reel|p|tv)\/([A-Za-z0-9_-]+)/);
+  const shortcodeOrUrl = shortcodeMatch?.[1] ?? url;
+  const apiUrl = `https://instagram-scraper-api2.p.rapidapi.com/v1/post_info?code_or_id_or_url=${encodeURIComponent(shortcodeOrUrl)}`;
 
-  diagnosis.api_url_called = apiUrl.replace(token, "APP_ID|APP_SECRET");
+  diagnosis.shortcode = shortcodeOrUrl;
+  diagnosis.api_url_called = apiUrl;
 
   try {
-    const apiRes = await fetch(apiUrl, { signal: AbortSignal.timeout(10000) });
+    const apiRes = await fetch(apiUrl, {
+      headers: {
+        "X-RapidAPI-Key": rapidApiKey,
+        "X-RapidAPI-Host": "instagram-scraper-api2.p.rapidapi.com",
+      },
+      signal: AbortSignal.timeout(12000),
+    });
     const body = await apiRes.text();
     diagnosis.http_status = apiRes.status;
     try {
-      diagnosis.api_response = JSON.parse(body);
+      const parsed = JSON.parse(body) as Record<string, unknown>;
+      diagnosis.api_response_keys = Object.keys(parsed);
+      diagnosis.thumbnail_extracted = extractRapidApiThumbnail(parsed);
+      diagnosis.author_extracted = extractRapidApiAuthor(parsed);
+      // Don't include full response (too large) — just keys + extracted values
     } catch {
-      diagnosis.api_response_raw = body;
+      diagnosis.api_response_raw = body.slice(0, 500);
     }
   } catch (err) {
     diagnosis.fetch_error = String(err);
