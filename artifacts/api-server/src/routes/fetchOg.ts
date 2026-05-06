@@ -104,11 +104,24 @@ async function tryLegacyOEmbed(url: string): Promise<{ title?: string; image?: s
       headers: { "User-Agent": BROWSER_UA },
       signal: AbortSignal.timeout(8000),
     });
+    const rawBody = await res.text();
+    const contentType = res.headers.get("content-type") ?? "";
+    // If Instagram returns HTML (login redirect), the endpoint is blocked for this IP
+    if (contentType.includes("html") || rawBody.trimStart().startsWith("<")) {
+      console.log(`[instagram:1] legacy oEmbed returned HTML — blocked for datacenter IPs`);
+      return null;
+    }
     if (!res.ok) {
       console.log(`[instagram:1] legacy oEmbed HTTP ${res.status} — skipping`);
       return null;
     }
-    const data = (await res.json()) as { thumbnail_url?: string; author_name?: string };
+    let data: { thumbnail_url?: string; author_name?: string };
+    try {
+      data = JSON.parse(rawBody) as { thumbnail_url?: string; author_name?: string };
+    } catch {
+      console.log(`[instagram:1] legacy oEmbed JSON parse failed`);
+      return null;
+    }
     if (!data.thumbnail_url) {
       console.log(`[instagram:1] legacy oEmbed: no thumbnail_url in response`);
       return null;
@@ -124,72 +137,105 @@ async function tryLegacyOEmbed(url: string): Promise<{ title?: string; image?: s
   }
 }
 
-// ── Attempt 2: Embed page JSON scrape ─────────────────────────────────────────
+// ── Attempt 2: Embed page scrape (multiple URL patterns + iframe headers) ─────
+//
+// Instagram serves a lightweight embed page to iframe requests. The key is
+// sending Sec-Fetch-Dest: iframe + Referer so their servers treat it as a
+// legitimate embed rather than a datacenter bot hitting the main app.
+// We try four URL patterns (p vs reel, with/without /captioned/) and extract
+// the image from the JSON blob, scontent CDN regex, or og:image meta tag.
+
+const EMBED_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 async function tryEmbedPageScrape(shortcode: string): Promise<{ title?: string; image?: string } | null> {
-  const embedUrl = `https://www.instagram.com/p/${shortcode}/embed/`;
-  try {
-    console.log(`[instagram:2] trying embed page scrape: ${embedUrl}`);
-    const res = await fetch(embedUrl, {
-      headers: {
-        "User-Agent": BROWSER_UA,
-        Accept: "text/html,*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) {
-      console.log(`[instagram:2] embed page HTTP ${res.status} — skipping`);
-      return null;
-    }
-    const html = await res.text();
+  // Four embed URL patterns Instagram might respond to
+  const candidates = [
+    `https://www.instagram.com/p/${shortcode}/embed/captioned/`,
+    `https://www.instagram.com/reel/${shortcode}/embed/captioned/`,
+    `https://www.instagram.com/p/${shortcode}/embed/`,
+    `https://www.instagram.com/reel/${shortcode}/embed/`,
+  ];
 
-    // Instagram injects a JSON blob: window.__additionalDataLoaded('extra',{...})
-    // or window.__sharedData = {...}. Pull display_url / thumbnail_src from it.
-    let imageUrl: string | undefined;
-
-    const jsonBlobMatch =
-      html.match(/window\.__additionalDataLoaded\([^,]+,(\{.+?\})\);/s) ??
-      html.match(/window\.__sharedData\s*=\s*(\{.+?\});/s);
-
-    if (jsonBlobMatch?.[1]) {
-      try {
-        // We only need specific fields — use regex to avoid parsing the full blob
-        const displayUrl = jsonBlobMatch[1].match(/"display_url"\s*:\s*"([^"]+)"/)?.[1];
-        const thumbSrc   = jsonBlobMatch[1].match(/"thumbnail_src"\s*:\s*"([^"]+)"/)?.[1];
-        const raw = displayUrl ?? thumbSrc;
-        if (raw) {
-          // Unescape JSON unicode (e.g. & → &)
-          imageUrl = raw.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) =>
-            String.fromCharCode(parseInt(h, 16)),
-          ).replace(/\\\//g, "/");
-        }
-      } catch { /* continue to fallback */ }
-    }
-
-    // Fallback: find any scontent CDN URL directly in the page source
-    if (!imageUrl) {
-      const scontentMatch = html.match(/(https:\\?\/\\?\/scontent[^"' <>]+\.(?:jpg|jpeg|png|webp))/i);
-      if (scontentMatch?.[1]) {
-        imageUrl = scontentMatch[1].replace(/\\\//g, "/").replace(/\\u0026/g, "&");
+  for (const embedUrl of candidates) {
+    try {
+      console.log(`[instagram:2] trying embed page: ${embedUrl}`);
+      const res = await fetch(embedUrl, {
+        headers: {
+          "User-Agent": EMBED_UA,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          // Tell Instagram this is an iframe embed request — critical
+          "Sec-Fetch-Dest": "iframe",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "cross-site",
+          Referer: "https://www.google.com/",
+          "Cache-Control": "no-cache",
+        },
+        redirect: "follow",
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!res.ok) {
+        console.log(`[instagram:2] ${embedUrl} → HTTP ${res.status} — trying next`);
+        continue;
       }
+      const html = await res.text();
+
+      let imageUrl: string | undefined;
+      let username: string | undefined;
+
+      // 1. JSON blob: window.__additionalDataLoaded or window.__sharedData
+      const jsonBlobMatch =
+        html.match(/window\.__additionalDataLoaded\([^,]+,(\{.+?\})\);/s) ??
+        html.match(/window\.__sharedData\s*=\s*(\{.+?\});/s);
+
+      if (jsonBlobMatch?.[1]) {
+        try {
+          const displayUrl = jsonBlobMatch[1].match(/"display_url"\s*:\s*"([^"]+)"/)?.[1];
+          const thumbSrc   = jsonBlobMatch[1].match(/"thumbnail_src"\s*:\s*"([^"]+)"/)?.[1];
+          const raw = displayUrl ?? thumbSrc;
+          if (raw) {
+            imageUrl = raw
+              .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+              .replace(/\\\//g, "/");
+          }
+          username = jsonBlobMatch[1].match(/"username"\s*:\s*"([^"]+)"/)?.[1];
+        } catch { /* fall through */ }
+      }
+
+      // 2. Any scontent CDN URL in source
+      if (!imageUrl) {
+        const m = html.match(/(https:\\?\/\\?\/scontent[^"' <>]+\.(?:jpg|jpeg|png|webp))/i);
+        if (m?.[1]) imageUrl = m[1].replace(/\\\//g, "/").replace(/\\u0026/g, "&");
+      }
+
+      // 3. og:image / twitter:image meta tags (server-rendered on some edge nodes)
+      if (!imageUrl) {
+        const og = parseOgTags(html, embedUrl);
+        if (og.image && og.image.includes("cdninstagram.com")) {
+          imageUrl = og.image;
+          console.log(`[instagram:2] found image via og:image meta`);
+        }
+      }
+
+      if (!imageUrl) {
+        console.log(`[instagram:2] ${embedUrl} — no image found (html length: ${html.length})`);
+        continue;
+      }
+
+      if (!username) {
+        username = html.match(/"username"\s*:\s*"([^"]+)"/)?.[1];
+      }
+
+      console.log(`[instagram:2] success via ${embedUrl}: ${imageUrl.slice(0, 80)}...`);
+      return { title: username ? `@${username}` : undefined, image: imageUrl };
+    } catch (err) {
+      console.log(`[instagram:2] ${embedUrl} threw: ${err}`);
     }
-
-    if (!imageUrl) {
-      console.log(`[instagram:2] embed page: no image found in HTML`);
-      return null;
-    }
-
-    // Extract username if present
-    const usernameMatch = html.match(/"username"\s*:\s*"([^"]+)"/);
-    const username = usernameMatch?.[1];
-
-    console.log(`[instagram:2] embed page success: ${imageUrl.slice(0, 80)}...`);
-    return { title: username ? `@${username}` : undefined, image: imageUrl };
-  } catch (err) {
-    console.log(`[instagram:2] embed page threw: ${err}`);
-    return null;
   }
+
+  console.log(`[instagram:2] all embed URL patterns failed`);
+  return null;
 }
 
 // ── Attempt 3: RapidAPI (any Instagram scraper the user configures) ───────────
@@ -499,39 +545,59 @@ router.get("/debug-instagram", async (req, res) => {
       headers: { "User-Agent": BROWSER_UA },
       signal: AbortSignal.timeout(8000),
     });
-    if (r.ok) {
-      const data = (await r.json()) as Record<string, unknown>;
-      report.attempt1_oembed = {
-        ok: !!data.thumbnail_url,
-        status: r.status,
-        thumbnail_url: data.thumbnail_url ?? null,
-        author_name: data.author_name ?? null,
-        response_keys: Object.keys(data),
-      };
+    const rawBody = await r.text();
+    const contentType = r.headers.get("content-type") ?? "";
+    if (contentType.includes("html") || rawBody.trimStart().startsWith("<")) {
+      // Instagram redirected to login/HTML page — endpoint is blocked for this IP
+      report.attempt1_oembed = { ok: false, status: r.status, blocked: true, note: "Returned HTML instead of JSON — oEmbed blocked for datacenter IPs", body_snippet: rawBody.slice(0, 200) };
+    } else if (r.ok) {
+      try {
+        const data = JSON.parse(rawBody) as Record<string, unknown>;
+        report.attempt1_oembed = { ok: !!data.thumbnail_url, status: r.status, thumbnail_url: data.thumbnail_url ?? null, author_name: data.author_name ?? null, response_keys: Object.keys(data) };
+      } catch {
+        report.attempt1_oembed = { ok: false, status: r.status, parse_error: "JSON parse failed", body_snippet: rawBody.slice(0, 200) };
+      }
     } else {
-      let bodySnippet = "";
-      try { bodySnippet = (await r.text()).slice(0, 300); } catch { /* ignore */ }
-      report.attempt1_oembed = { ok: false, status: r.status, body_snippet: bodySnippet };
+      report.attempt1_oembed = { ok: false, status: r.status, body_snippet: rawBody.slice(0, 300) };
     }
   } catch (err) {
     report.attempt1_oembed = { ok: false, error: String(err) };
   }
 
-  // ── Attempt 2: embed page scrape ─────────────────────────────────────────────
+  // ── Attempt 2: embed page scrape (4 URL patterns, iframe headers) ───────────
   if (shortcode) {
-    const embedUrl = `https://www.instagram.com/p/${shortcode}/embed/`;
-    try {
-      const r = await fetch(embedUrl, {
-        headers: {
-          "User-Agent": BROWSER_UA,
-          Accept: "text/html,*/*",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (r.ok) {
+    const embedCandidates = [
+      `https://www.instagram.com/p/${shortcode}/embed/captioned/`,
+      `https://www.instagram.com/reel/${shortcode}/embed/captioned/`,
+      `https://www.instagram.com/p/${shortcode}/embed/`,
+      `https://www.instagram.com/reel/${shortcode}/embed/`,
+    ];
+    const embedResults: unknown[] = [];
+    let embedSuccess = false;
+
+    for (const embedUrl of embedCandidates) {
+      try {
+        const r = await fetch(embedUrl, {
+          headers: {
+            "User-Agent": EMBED_UA,
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Sec-Fetch-Dest": "iframe",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "cross-site",
+            Referer: "https://www.google.com/",
+            "Cache-Control": "no-cache",
+          },
+          redirect: "follow",
+          signal: AbortSignal.timeout(12000),
+        });
+        if (!r.ok) {
+          embedResults.push({ url: embedUrl, status: r.status });
+          continue;
+        }
         const html = await r.text();
         let imageUrl: string | null = null;
+        let method: string | null = null;
 
         const jsonBlobMatch =
           html.match(/window\.__additionalDataLoaded\([^,]+,(\{.+?\})\);/s) ??
@@ -541,29 +607,25 @@ router.get("/debug-instagram", async (req, res) => {
             const displayUrl = jsonBlobMatch[1].match(/"display_url"\s*:\s*"([^"]+)"/)?.[1];
             const thumbSrc   = jsonBlobMatch[1].match(/"thumbnail_src"\s*:\s*"([^"]+)"/)?.[1];
             const raw = displayUrl ?? thumbSrc;
-            if (raw) imageUrl = raw.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\\//g, "/");
+            if (raw) { imageUrl = raw.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\\//g, "/"); method = "json_blob"; }
           } catch { /* ignore */ }
         }
         if (!imageUrl) {
           const m = html.match(/(https:\\?\/\\?\/scontent[^"' <>]+\.(?:jpg|jpeg|png|webp))/i);
-          if (m?.[1]) imageUrl = m[1].replace(/\\\//g, "/").replace(/\\u0026/g, "&");
+          if (m?.[1]) { imageUrl = m[1].replace(/\\\//g, "/").replace(/\\u0026/g, "&"); method = "scontent_regex"; }
+        }
+        if (!imageUrl) {
+          const og = parseOgTags(html, embedUrl);
+          if (og.image && og.image.includes("cdninstagram.com")) { imageUrl = og.image; method = "og_image_meta"; }
         }
 
-        const hasJsonBlob = !!(jsonBlobMatch?.[1]);
-        report.attempt2_embed = {
-          ok: !!imageUrl,
-          status: r.status,
-          html_length: html.length,
-          json_blob_found: hasJsonBlob,
-          image_url: imageUrl,
-          html_snippet: html.slice(0, 400),
-        };
-      } else {
-        report.attempt2_embed = { ok: false, status: r.status, embed_url: embedUrl };
+        embedResults.push({ url: embedUrl, status: r.status, html_length: html.length, json_blob_found: !!jsonBlobMatch?.[1], image_url: imageUrl, image_method: method, html_snippet: html.slice(0, 500) });
+        if (imageUrl) { embedSuccess = true; break; }
+      } catch (err) {
+        embedResults.push({ url: embedUrl, error: String(err) });
       }
-    } catch (err) {
-      report.attempt2_embed = { ok: false, error: String(err), embed_url: embedUrl };
     }
+    report.attempt2_embed = { ok: embedSuccess, candidates_tried: embedResults };
   } else {
     report.attempt2_embed = { ok: false, skipped: "no shortcode found in URL" };
   }
