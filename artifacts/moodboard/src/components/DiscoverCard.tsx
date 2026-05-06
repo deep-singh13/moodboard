@@ -123,34 +123,33 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote }:
   const typeClass = `discover-card-img--${item.type}`;
   const placeholderClass = `discover-card-placeholder--${item.type}`;
 
-  const image =
-    item.imageUrl && !imgError ? (
-      <img
-        src={item.imageUrl}
-        alt={item.title ?? ""}
-        className={`discover-card-img ${typeClass}`}
-        onError={() => setImgError(true)}
-        draggable={false}
-      />
-    ) : (
-      <div className={`discover-card-placeholder ${placeholderClass}`}>
-        {item.type === "reel" && (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.3}>
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-        )}
-        {item.type === "movie" && (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.3}>
-            <rect x="2" y="2" width="20" height="20" rx="2" /><path d="M7 2v20M17 2v20M2 12h20" />
-          </svg>
-        )}
-        {item.type === "link" && (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.3}>
-            <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
-          </svg>
-        )}
-      </div>
-    );
+  const image = !item.imageUrl ? null : imgError ? (
+    <div className={`discover-card-placeholder ${placeholderClass}`}>
+      {item.type === "reel" && (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.3}>
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+      )}
+      {item.type === "movie" && (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.3}>
+          <rect x="2" y="2" width="20" height="20" rx="2" /><path d="M7 2v20M17 2v20M2 12h20" />
+        </svg>
+      )}
+      {item.type === "link" && (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.3}>
+          <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
+        </svg>
+      )}
+    </div>
+  ) : (
+    <img
+      src={item.imageUrl}
+      alt={item.title ?? ""}
+      className={`discover-card-img ${typeClass}`}
+      onError={() => setImgError(true)}
+      draggable={false}
+    />
+  );
 
   return (
     <div

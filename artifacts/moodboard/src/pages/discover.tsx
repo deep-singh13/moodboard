@@ -7,6 +7,22 @@ import { AddDiscoverModal } from "@/components/AddDiscoverModal";
 type TypeFilter = "all" | "movie" | "reel" | "link";
 type StatusFilter = "all" | "want" | "done";
 
+function useColumnCount(): number {
+  const [cols, setCols] = useState(() => {
+    const w = typeof window !== "undefined" ? window.innerWidth : 1200;
+    return w < 640 ? 2 : w < 1024 ? 3 : 4;
+  });
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      setCols(w < 640 ? 2 : w < 1024 ? 3 : 4);
+    };
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return cols;
+}
+
 interface DiscoverProps {
   searchQuery: string;
 }
@@ -74,6 +90,10 @@ export default function Discover({ searchQuery }: DiscoverProps) {
     return true;
   });
 
+  const numCols = useColumnCount();
+  const columns: MoodboardItem[][] = Array.from({ length: numCols }, () => []);
+  displayed.forEach((item, i) => columns[i % numCols].push(item));
+
   const chipClass = (active: boolean) => `filter-chip${active ? " active" : ""}`;
 
   return (
@@ -135,14 +155,18 @@ export default function Discover({ searchQuery }: DiscoverProps) {
 
       {!loading && !loadError && displayed.length > 0 && (
         <div className="discover-masonry">
-          {displayed.map((item) => (
-            <DiscoverCard
-              key={item.id}
-              item={item}
-              onRemove={removeItem}
-              onToggleComplete={toggleComplete}
-              onUpdateNote={updateNote}
-            />
+          {columns.map((col, ci) => (
+            <div key={ci} className="discover-col">
+              {col.map((item) => (
+                <DiscoverCard
+                  key={item.id}
+                  item={item}
+                  onRemove={removeItem}
+                  onToggleComplete={toggleComplete}
+                  onUpdateNote={updateNote}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}
