@@ -123,82 +123,89 @@ export default function Discover({ searchQuery }: DiscoverProps) {
 
   return (
     <div className="discover-page">
-      <div className="discover-header">
-        <span className="discover-title">Discover</span>
-        <span className="discover-count">
-          {items.length} {items.length === 1 ? "item" : "items"}
-        </span>
-      </div>
+      <div className="discover-page-inner">
+        <header className="discover-header">
+          <span className="discover-eyebrow">A running collection</span>
+          <h1 className="discover-title">Things worth coming back to</h1>
+          <span className="discover-meta tnum">
+            {items.length} saved
+          </span>
+        </header>
 
-      {/* Filter chips */}
-      <div className="discover-filters">
-        <button className={chipClass(typeFilter === "all")}   onClick={() => setTypeFilter("all")}>All</button>
-        <button className={chipClass(typeFilter === "movie")} onClick={() => setTypeFilter("movie")}>🎬 Movies</button>
-        <button className={chipClass(typeFilter === "reel")}  onClick={() => setTypeFilter("reel")}>▶ Reels</button>
-        <button className={chipClass(typeFilter === "link")}  onClick={() => setTypeFilter("link")}>🔗 Links</button>
-        <button className={chipClass(statusFilter === "want")} onClick={() => setStatusFilter(statusFilter === "want" ? "all" : "want")} style={{ marginLeft: "auto" }}>
-          Want to watch
-        </button>
-        <button className={chipClass(statusFilter === "done")} onClick={() => setStatusFilter(statusFilter === "done" ? "all" : "done")}>
-          Watched
-        </button>
-      </div>
-
-      {/* States */}
-      {loading && (
-        <div className="discover-empty">
-          <div className="canvas-loading">
-            <span className="loading-dot" /><span className="loading-dot" /><span className="loading-dot" />
-          </div>
+        {/* Filter chips — type group, divider, status group */}
+        <div className="discover-filters" role="toolbar" aria-label="Filter saved items">
+          <button className={chipClass(typeFilter === "all")}   onClick={() => setTypeFilter("all")}>All</button>
+          <button className={chipClass(typeFilter === "movie")} onClick={() => setTypeFilter("movie")}>Movies</button>
+          <button className={chipClass(typeFilter === "reel")}  onClick={() => setTypeFilter("reel")}>Reels</button>
+          <button className={chipClass(typeFilter === "link")}  onClick={() => setTypeFilter("link")}>Links</button>
+          <span className="filter-divider" aria-hidden="true" />
+          <button className={chipClass(statusFilter === "want")} onClick={() => setStatusFilter(statusFilter === "want" ? "all" : "want")}>
+            To watch
+          </button>
+          <button className={chipClass(statusFilter === "done")} onClick={() => setStatusFilter(statusFilter === "done" ? "all" : "done")}>
+            Watched
+          </button>
         </div>
-      )}
 
-      {loadError && (
-        <div className="discover-empty">
-          <div className="discover-empty-inner">
-            <p>Couldn't connect — please refresh.</p>
-          </div>
-        </div>
-      )}
-
-      {!loading && !loadError && items.length === 0 && (
-        <div className="discover-empty">
-          <div className="discover-empty-inner">
-            <span className="empty-state-headline">Start discovering</span>
-            <p>Add a movie, Instagram reel, or website link to begin</p>
-          </div>
-        </div>
-      )}
-
-      {!loading && !loadError && items.length > 0 && displayed.length === 0 && (
-        <div className="discover-empty">
-          <div className="discover-empty-inner">
-            <p>No items match the current filters.</p>
-          </div>
-        </div>
-      )}
-
-      {!loading && !loadError && displayed.length > 0 && (
-        <div className="discover-masonry">
-          {columns.map((col, ci) => (
-            <div key={ci} className="discover-col">
-              {col.map((item) => (
-                <DiscoverCard
-                  key={item.id}
-                  item={item}
-                  onRemove={removeItem}
-                  onToggleComplete={toggleComplete}
-                  onUpdateNote={updateNote}
-                  onEdit={(id) => {
-                    const found = items.find((i) => i.id === id);
-                    if (found) setEditItem(found);
-                  }}
-                />
-              ))}
+        {/* States */}
+        {loading && (
+          <div className="discover-empty">
+            <div className="canvas-loading" aria-label="Loading">
+              <span className="loading-dot" /><span className="loading-dot" /><span className="loading-dot" />
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+
+        {loadError && (
+          <div className="discover-empty">
+            <div className="discover-empty-inner">
+              <span className="discover-empty-glyph" aria-hidden="true">…</span>
+              <span className="empty-state-headline">Couldn&rsquo;t connect</span>
+              <p>Check your connection and refresh the page.</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && !loadError && items.length === 0 && (
+          <div className="discover-empty">
+            <div className="discover-empty-inner">
+              <span className="discover-empty-glyph" aria-hidden="true">✦</span>
+              <span className="empty-state-headline">Nothing saved yet</span>
+              <p>Stash a film you keep meaning to watch, a reel you can&rsquo;t stop replaying, or a link worth a second read.</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && !loadError && items.length > 0 && displayed.length === 0 && (
+          <div className="discover-empty">
+            <div className="discover-empty-inner">
+              <p>No matches for these filters.</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && !loadError && displayed.length > 0 && (
+          <div className="discover-masonry">
+            {columns.map((col, ci) => (
+              <div key={ci} className="discover-col">
+                {col.map((item) => (
+                  <DiscoverCard
+                    key={item.id}
+                    item={item}
+                    onRemove={removeItem}
+                    onToggleComplete={toggleComplete}
+                    onUpdateNote={updateNote}
+                    onEdit={(id) => {
+                      const found = items.find((i) => i.id === id);
+                      if (found) setEditItem(found);
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* FAB */}
       <button className="fab-btn" onClick={() => setIsModalOpen(true)} aria-label="Add item">
@@ -229,7 +236,7 @@ export default function Discover({ searchQuery }: DiscoverProps) {
 
       {thumbToast && (
         <div className="thumb-toast" role="status">
-          No thumbnail found — hover the card and tap <strong>✎</strong> to add one manually.
+          Couldn&rsquo;t grab a thumbnail. Hover the card and tap <strong>✎</strong> to add one.
         </div>
       )}
     </div>
