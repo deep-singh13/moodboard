@@ -12,6 +12,7 @@ import {
   patchItemNote,
 } from "@/lib/api";
 import Discover from "@/pages/discover";
+import Quotes from "@/pages/quotes";
 
 const GRID_GAP = 20;
 const COLS_SIZES = [220, 320, 420];
@@ -135,7 +136,7 @@ export default function Moodboard() {
   const [addError, setAddError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [surpriseId, setSurpriseId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"board" | "discover">("board");
+  const [activeTab, setActiveTab] = useState<"board" | "discover" | "quotes">("board");
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -487,6 +488,12 @@ export default function Moodboard() {
           >
             Discover
           </button>
+          <button
+            className={`tab-btn ${activeTab === "quotes" ? "active" : ""}`}
+            onClick={() => setActiveTab("quotes")}
+          >
+            Quotes
+          </button>
         </div>
 
         {/* Board-only controls */}
@@ -638,6 +645,11 @@ export default function Moodboard() {
       {/* Discover page — manages its own FAB and modal */}
       {activeTab === "discover" && (
         <Discover searchQuery={searchQuery} />
+      )}
+
+      {/* Quotes page — manages its own FAB and modal */}
+      {activeTab === "quotes" && (
+        <Quotes searchQuery={searchQuery} />
       )}
 
       {isModalOpen && (
