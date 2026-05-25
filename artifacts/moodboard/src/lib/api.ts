@@ -49,7 +49,12 @@ export async function patchItemNote(
 
 export async function patchItemEdit(
   id: string,
-  updates: { title?: string | null; imageUrl?: string | null },
+  updates: {
+    title?: string | null;
+    imageUrl?: string | null;
+    subtitle?: string | null;
+    meta?: string | null;
+  },
 ): Promise<void> {
   const res = await fetch(`${BASE}/items/${id}`, {
     method: "PATCH",
