@@ -1,6 +1,6 @@
 export interface MoodboardItem {
   id: string;
-  type: "substack" | "youtube" | "link" | "photo" | "movie" | "reel";
+  type: "substack" | "youtube" | "link" | "photo" | "movie" | "reel" | "quote";
   url: string;
   title?: string;
   subtitle?: string;

@@ -90,6 +90,8 @@ router.patch("/items/:id", async (req, res) => {
     note?: string | null;
     title?: string | null;
     imageUrl?: string | null;
+    subtitle?: string | null;
+    meta?: string | null;
   };
   try {
     if (body.completed !== undefined) {
@@ -107,6 +109,18 @@ router.patch("/items/:id", async (req, res) => {
     if ("title" in body) {
       await pool.query("UPDATE items SET title = $1 WHERE id = $2", [
         body.title ?? null,
+        req.params.id,
+      ]);
+    }
+    if ("subtitle" in body) {
+      await pool.query("UPDATE items SET subtitle = $1 WHERE id = $2", [
+        body.subtitle ?? null,
+        req.params.id,
+      ]);
+    }
+    if ("meta" in body) {
+      await pool.query("UPDATE items SET meta = $1 WHERE id = $2", [
+        body.meta ?? null,
         req.params.id,
       ]);
     }
