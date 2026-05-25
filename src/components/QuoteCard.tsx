@@ -1,0 +1,52 @@
+import type { MoodboardItem } from "@/types";
+
+interface QuoteCardProps {
+  item: MoodboardItem;
+  onRemove: (id: string) => void;
+  onEdit: (id: string) => void;
+}
+
+function EditIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
+export function QuoteCard({ item, onRemove, onEdit }: QuoteCardProps) {
+  const meta: Record<string, string> = (() => {
+    try { return item.meta ? JSON.parse(item.meta) : {}; }
+    catch { return {}; }
+  })();
+
+  const color = meta.color ?? "sage";
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRemove(item.id);
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit(item.id);
+  };
+
+  return (
+    <div className={`quote-card quote-card--${color}`}>
+      <p className="quote-card-text">{item.title}</p>
+      {item.subtitle && <p className="quote-card-author">{item.subtitle}</p>}
+
+      <button className="discover-edit-btn" onClick={handleEdit} aria-label="Edit quote">
+        <EditIcon />
+      </button>
+
+      <button className="card-remove" onClick={handleRemove} aria-label="Remove quote">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
