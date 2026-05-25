@@ -81,6 +81,15 @@
 
   /* Dot grid */
   --dot-color: rgba(0, 0, 0, 0.055);
+
+  /* Quote card colors — light mode */
+  --quote-bg-sage:     oklch(0.89 0.05 145);
+  --quote-bg-blush:    oklch(0.89 0.05 10);
+  --quote-bg-lavender: oklch(0.89 0.05 290);
+  --quote-bg-peach:    oklch(0.89 0.06 55);
+  --quote-bg-sky:      oklch(0.89 0.05 230);
+  --quote-bg-slate:    oklch(0.89 0.04 250);
+  --quote-text:        var(--text-primary);
 }
 
 [data-theme="dark"] {
@@ -127,6 +136,15 @@
 
   /* Dot grid */
   --dot-color: rgba(255, 255, 255, 0.04);
+
+  /* Quote card colors — dark mode */
+  --quote-bg-sage:     oklch(0.24 0.05 145);
+  --quote-bg-blush:    oklch(0.24 0.05 10);
+  --quote-bg-lavender: oklch(0.24 0.05 290);
+  --quote-bg-peach:    oklch(0.24 0.06 55);
+  --quote-bg-sky:      oklch(0.24 0.05 230);
+  --quote-bg-slate:    oklch(0.24 0.04 250);
+  --quote-text:        oklch(0.92 0.006 70);
 }
 
 /* ============================================================
@@ -1907,4 +1925,125 @@ body {
   object-fit: cover;
   max-height: 220px;
   display: block;
+}
+
+/* ============================================================
+   QUOTE CARD
+   ============================================================ */
+
+.quote-card {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  position: relative;
+  box-shadow: var(--card-shadow);
+  padding: var(--space-6) var(--space-5);
+  transition: box-shadow 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
+  cursor: default;
+}
+
+.quote-card:hover {
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Color variants */
+.quote-card--sage     { background: var(--quote-bg-sage);     }
+.quote-card--blush    { background: var(--quote-bg-blush);    }
+.quote-card--lavender { background: var(--quote-bg-lavender); }
+.quote-card--peach    { background: var(--quote-bg-peach);    }
+.quote-card--sky      { background: var(--quote-bg-sky);      }
+.quote-card--slate    { background: var(--quote-bg-slate);    }
+
+.quote-card-text {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-size: var(--text-lg);
+  line-height: 1.55;
+  letter-spacing: var(--tracking-snug);
+  color: var(--quote-text);
+  margin-bottom: var(--space-4);
+  word-break: break-word;
+}
+
+.quote-card-author {
+  font-family: 'DM Sans', sans-serif;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--quote-text);
+  opacity: 0.6;
+  letter-spacing: 0.01em;
+}
+
+/* Show action buttons on hover */
+.quote-card:hover .card-remove       { opacity: 1; }
+.quote-card:hover .discover-edit-btn { opacity: 1; }
+
+/* ── Color pill chooser (Add/Edit Quote modals) ── */
+
+.quote-color-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.quote-color-pill {
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: 2px solid transparent;
+  font-family: 'DM Sans', sans-serif;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  color: oklch(0.22 0.01 70);
+  transition: border-color 0.15s ease, transform 0.12s;
+  letter-spacing: 0.01em;
+}
+
+.quote-color-pill:hover {
+  transform: translateY(-1px);
+}
+
+.quote-color-pill--sage     { background: oklch(0.89 0.05 145); }
+.quote-color-pill--blush    { background: oklch(0.89 0.05 10);  }
+.quote-color-pill--lavender { background: oklch(0.89 0.05 290); }
+.quote-color-pill--peach    { background: oklch(0.89 0.06 55);  }
+.quote-color-pill--sky      { background: oklch(0.89 0.05 230); }
+.quote-color-pill--slate    { background: oklch(0.89 0.04 250); }
+
+.quote-color-pill.selected {
+  border-color: oklch(0.28 0.02 70 / 0.55);
+  transform: scale(1.04);
+}
+
+/* Modal textarea (shared by quote modals) */
+.modal-textarea {
+  width: 100%;
+  padding: 12px 15px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-input);
+  border-radius: 12px;
+  outline: none;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.55;
+}
+
+.modal-textarea:focus {
+  border-color: var(--bg-btn-add);
+  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
+}
+
+.modal-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Modal field spacing helper */
+.modal-field {
+  margin-bottom: var(--space-5);
 }
