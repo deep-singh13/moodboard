@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Instrument+Serif:ital@0;1&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
 
 /* ============================================================
    CSS CUSTOM PROPERTIES — DESIGN TOKENS
@@ -1956,11 +1956,11 @@ body {
 .quote-card--slate    { background: var(--quote-bg-slate);    }
 
 .quote-card-text {
-  font-family: 'Instrument Serif', Georgia, serif;
+  font-family: 'Libre Baskerville', Georgia, serif;
   font-style: italic;
   font-size: var(--text-lg);
-  line-height: 1.55;
-  letter-spacing: var(--tracking-snug);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
   color: var(--quote-text);
   margin-bottom: var(--space-4);
   word-break: break-word;
