@@ -13,14 +13,6 @@ import {
 } from "@/lib/api";
 import Discover from "@/pages/discover";
 import Quotes from "@/pages/quotes";
-import {
-  CommandDialog,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-} from "@/components/ui/command";
 
 const GRID_GAP = 20;
 const COLS_SIZES = [220, 320, 420];
@@ -135,7 +127,6 @@ export default function Moodboard() {
   const [items, setItems] = useState<MoodboardItem[]>([]);
   const [layoutItems, setLayoutItems] = useState<MoodboardItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [showHint, setShowHint] = useState(false);
@@ -149,6 +140,7 @@ export default function Moodboard() {
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const surpriseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const panX = useRef(0);
@@ -446,21 +438,21 @@ export default function Moodboard() {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setIsCommandOpen(true);
+        searchInputRef.current?.focus();
         return;
       }
       if (e.key === "Escape") {
         if (searchQuery) {
           setSearchQuery("");
+          searchInputRef.current?.blur();
           return;
         }
         if (isModalOpen) setIsModalOpen(false);
-        if (isCommandOpen) setIsCommandOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isModalOpen, isCommandOpen, searchQuery]);
+  }, [isModalOpen, searchQuery]);
 
   // Clear surprise highlight when user clicks surprise id tile or after timer
   useEffect(() => {
@@ -468,20 +460,6 @@ export default function Moodboard() {
       if (surpriseTimerRef.current) clearTimeout(surpriseTimerRef.current);
     };
   }, []);
-
-  const handleSelectItem = (item: MoodboardItem) => {
-    setIsCommandOpen(false);
-    setSearchQuery(""); // Restore full board view
-    setActiveTab("board"); // Switch to board if not there
-    
-    // Slight delay to ensure tab switch and layout are ready if needed
-    setTimeout(() => {
-      scrollToItem(item);
-      setSurpriseId(item.id);
-      if (surpriseTimerRef.current) clearTimeout(surpriseTimerRef.current);
-      surpriseTimerRef.current = setTimeout(() => setSurpriseId(null), 3000);
-    }, 50);
-  };
 
   const displayedItems = searchQuery
     ? layoutItems.filter((item) => matchesSearch(item, searchQuery))
@@ -541,27 +519,41 @@ export default function Moodboard() {
           </>
         )}
 
-        {/* Search trigger — shared, always visible */}
+        {/* Search — shared, always visible */}
         <div className="search-wrap">
-          <button 
-            className="search-input search-trigger-btn" 
-            onClick={() => setIsCommandOpen(true)}
-            aria-label="Search items"
+          <svg
+            className="search-icon"
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
           >
-            <svg
-              className="search-icon"
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="search-input"
+            placeholder="Search… (⌘K)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search tiles"
+          />
+          {searchQuery && (
+            <button
+              className="search-clear-btn"
+              onClick={() => {
+                setSearchQuery("");
+                searchInputRef.current?.focus();
+              }}
+              aria-label="Clear search"
             >
-              <circle cx="11" cy="11" r="8" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-            <span className="search-placeholder">Search… (⌘K)</span>
-          </button>
+              ×
+            </button>
+          )}
         </div>
 
         {/* Board-only: Surprise Me */}
@@ -673,31 +665,6 @@ export default function Moodboard() {
           {addError}
         </div>
       )}
-
-      <CommandDialog open={isCommandOpen} onOpenChange={setIsCommandOpen}>
-        <CommandInput placeholder="Search Substacks, movies, quotes..." />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Items">
-            {items.map((item) => (
-              <CommandItem
-                key={item.id}
-                onSelect={() => handleSelectItem(item)}
-                className="flex items-center gap-3 py-3"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{item.title || "Untitled"}</p>
-                  <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>
-                </div>
-                <span className="text-[10px] uppercase tracking-wider opacity-50 px-1.5 py-0.5 border rounded">
-                  {item.type}
-                </span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
     </div>
   );
 }
-

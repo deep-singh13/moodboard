@@ -326,17 +326,6 @@ body {
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
-.search-trigger-btn {
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-
-.search-placeholder {
-  color: var(--text-muted);
-}
-
 .search-input::placeholder {
   color: var(--text-muted);
 }
