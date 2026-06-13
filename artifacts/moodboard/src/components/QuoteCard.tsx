@@ -4,6 +4,7 @@ interface QuoteCardProps {
   item: MoodboardItem;
   onRemove: (id: string) => void;
   onEdit: (id: string) => void;
+  isHighlighted?: boolean;
 }
 
 function EditIcon() {
@@ -15,7 +16,7 @@ function EditIcon() {
   );
 }
 
-export function QuoteCard({ item, onRemove, onEdit }: QuoteCardProps) {
+export function QuoteCard({ item, onRemove, onEdit, isHighlighted }: QuoteCardProps) {
   const meta: Record<string, string> = (() => {
     try { return item.meta ? JSON.parse(item.meta) : {}; }
     catch { return {}; }
@@ -34,7 +35,11 @@ export function QuoteCard({ item, onRemove, onEdit }: QuoteCardProps) {
   };
 
   return (
-    <div className={`quote-card quote-card--${color}`}>
+    <div
+      className={`quote-card quote-card--${color}`}
+      data-item-id={item.id}
+      data-highlight={isHighlighted ? "true" : undefined}
+    >
       <p className="quote-card-text">{item.title}</p>
       {item.subtitle && <p className="quote-card-author">{item.subtitle}</p>}
 
