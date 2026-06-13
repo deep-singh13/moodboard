@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { MoodboardItem } from "@/types";
 import { fetchItems, createItem, deleteItem, patchItemEdit } from "@/lib/api";
 import { QuoteCard } from "@/components/QuoteCard";
+import { SpotlightSearch } from "@/components/SpotlightSearch";
 import { AddQuoteModal } from "@/components/AddQuoteModal";
 import { EditQuoteModal } from "@/components/EditQuoteModal";
 
@@ -21,25 +22,21 @@ function useColumnCount(): number {
   return cols;
 }
 
-function matchesSearch(item: MoodboardItem, query: string): boolean {
-  const q = query.toLowerCase().trim();
-  if (!q) return true;
-  return [item.title ?? "", item.subtitle ?? ""].some((f) =>
-    f.toLowerCase().includes(q),
-  );
-}
 
 interface QuotesProps {
-  searchQuery: string;
+  spotlightOpen: boolean;
+  onSpotlightClose: () => void;
 }
 
-export default function Quotes({ searchQuery }: QuotesProps) {
+export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps) {
   const [items, setItems] = useState<MoodboardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<MoodboardItem | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchItems("quotes")
@@ -83,7 +80,23 @@ export default function Quotes({ searchQuery }: QuotesProps) {
     [],
   );
 
-  const displayed = items.filter((item) => matchesSearch(item, searchQuery));
+  const selectItem = useCallback((item: MoodboardItem) => {
+    onSpotlightClose();
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    setHighlightId(item.id);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`.discover-page [data-item-id="${item.id}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    highlightTimer.current = setTimeout(() => setHighlightId(null), 1800);
+  }, [onSpotlightClose]);
+
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+  }, []);
+
+  const displayed = items;
 
   const numCols = useColumnCount();
   const columns: MoodboardItem[][] = Array.from({ length: numCols }, () => []);
@@ -142,6 +155,7 @@ export default function Quotes({ searchQuery }: QuotesProps) {
                   <QuoteCard
                     key={item.id}
                     item={item}
+                    isHighlighted={item.id === highlightId}
                     onRemove={removeItem}
                     onEdit={(id) => {
                       const found = items.find((i) => i.id === id);
@@ -180,6 +194,14 @@ export default function Quotes({ searchQuery }: QuotesProps) {
       {addError && (
         <div className="error-toast" role="alert">{addError}</div>
       )}
+
+      <SpotlightSearch
+        open={spotlightOpen}
+        onClose={onSpotlightClose}
+        items={items}
+        onSelect={selectItem}
+        placeholder="Search quotes…"
+      />
     </div>
   );
 }

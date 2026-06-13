@@ -7,6 +7,7 @@ interface DiscoverCardProps {
   onToggleComplete: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
   onEdit?: (id: string) => void;
+  isHighlighted?: boolean;
 }
 
 function CheckIcon() {
@@ -70,7 +71,7 @@ function getTypeIcon(type: string): React.ReactNode {
   );
 }
 
-export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote, onEdit }: DiscoverCardProps) {
+export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote, onEdit, isHighlighted }: DiscoverCardProps) {
   const [imgError, setImgError] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [draftNote, setDraftNote] = useState("");
@@ -169,6 +170,8 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote, o
   return (
     <div
       className={`discover-card ${completedClass}`}
+      data-item-id={item.id}
+      data-highlight={isHighlighted ? "true" : undefined}
       onClick={handleClick}
     >
       {image}
