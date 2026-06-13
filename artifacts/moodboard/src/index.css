@@ -2118,6 +2118,7 @@ body {
   border: none;
   border-radius: 10px;
   background: transparent;
+  color: inherit;
   cursor: pointer;
   text-align: left;
   transition: background 0.1s ease;
