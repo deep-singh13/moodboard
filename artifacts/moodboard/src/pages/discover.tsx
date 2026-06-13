@@ -116,6 +116,10 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
     highlightTimer.current = setTimeout(() => setHighlightId(null), 1800);
   }, [onSpotlightClose]);
 
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+  }, []);
+
   const displayed = items.filter((item) => {
     if (typeFilter !== "all" && item.type !== typeFilter) return false;
     if (statusFilter === "want" && item.completed) return false;

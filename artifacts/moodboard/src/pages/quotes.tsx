@@ -92,6 +92,10 @@ export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps)
     highlightTimer.current = setTimeout(() => setHighlightId(null), 1800);
   }, [onSpotlightClose]);
 
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+  }, []);
+
   const displayed = items;
 
   const numCols = useColumnCount();
