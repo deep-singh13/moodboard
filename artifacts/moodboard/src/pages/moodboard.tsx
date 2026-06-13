@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import Discover from "@/pages/discover";
 import Quotes from "@/pages/quotes";
+import { SpotlightSearch } from "@/components/SpotlightSearch";
 
 const GRID_GAP = 20;
 const COLS_SIZES = [220, 320, 420];
@@ -107,14 +108,6 @@ function computeLayout(items: MoodboardItem[]): MoodboardItem[] {
   return result;
 }
 
-function matchesSearch(item: MoodboardItem, query: string): boolean {
-  const q = query.toLowerCase().trim();
-  if (!q) return true;
-  return [item.title ?? "", item.subtitle ?? "", item.note ?? ""].some((f) =>
-    f.toLowerCase().includes(q),
-  );
-}
-
 function loadTheme(): "light" | "dark" {
   try {
     const t = localStorage.getItem("moodboard-theme");
@@ -134,13 +127,12 @@ export default function Moodboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [surpriseId, setSurpriseId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"board" | "discover" | "quotes">("board");
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const surpriseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const panX = useRef(0);
@@ -194,6 +186,17 @@ export default function Moodboard() {
       animFrameRef.current = requestAnimationFrame(animate);
     },
     [applyTransform],
+  );
+
+  const selectBoardItem = useCallback(
+    (item: MoodboardItem) => {
+      setSpotlightOpen(false);
+      if (surpriseTimerRef.current) clearTimeout(surpriseTimerRef.current);
+      setSurpriseId(item.id);
+      scrollToItem(item);
+      surpriseTimerRef.current = setTimeout(() => setSurpriseId(null), 2000);
+    },
+    [scrollToItem],
   );
 
   useEffect(() => {
@@ -284,10 +287,7 @@ export default function Moodboard() {
   }, []);
 
   const handleSurpriseMe = useCallback(() => {
-    const pool = (searchQuery
-      ? layoutItems.filter((item) => matchesSearch(item, searchQuery))
-      : layoutItems
-    ).filter((item) => !item.completed);
+    const pool = layoutItems.filter((item) => !item.completed);
     if (pool.length === 0) return;
 
     if (surpriseTimerRef.current) clearTimeout(surpriseTimerRef.current);
@@ -302,7 +302,7 @@ export default function Moodboard() {
     scrollToItem(picked);
 
     surpriseTimerRef.current = setTimeout(() => setSurpriseId(null), 4000);
-  }, [layoutItems, searchQuery, surpriseId, scrollToItem]);
+  }, [layoutItems, surpriseId, scrollToItem]);
 
   const inertia = useCallback(() => {
     if (Math.abs(velocity.current.x) < 0.1 && Math.abs(velocity.current.y) < 0.1) {
@@ -438,21 +438,16 @@ export default function Moodboard() {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        setSpotlightOpen((v) => !v);
         return;
       }
-      if (e.key === "Escape") {
-        if (searchQuery) {
-          setSearchQuery("");
-          searchInputRef.current?.blur();
-          return;
-        }
-        if (isModalOpen) setIsModalOpen(false);
+      if (e.key === "Escape" && isModalOpen) {
+        setIsModalOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isModalOpen, searchQuery]);
+  }, [isModalOpen]);
 
   // Clear surprise highlight when user clicks surprise id tile or after timer
   useEffect(() => {
@@ -461,12 +456,7 @@ export default function Moodboard() {
     };
   }, []);
 
-  const displayedItems = searchQuery
-    ? layoutItems.filter((item) => matchesSearch(item, searchQuery))
-    : layoutItems;
-
-  const showSearchEmpty =
-    !!searchQuery && displayedItems.length === 0 && !loading && !loadError && items.length > 0;
+  const displayedItems = layoutItems;
 
   return (
     <div className="moodboard-root" data-theme={theme}>
@@ -519,8 +509,12 @@ export default function Moodboard() {
           </>
         )}
 
-        {/* Search — shared, always visible */}
-        <div className="search-wrap">
+        {/* Search — shared trigger; opens Spotlight modal */}
+        <button
+          className="search-trigger"
+          onClick={() => setSpotlightOpen(true)}
+          aria-label="Open search"
+        >
           <svg
             className="search-icon"
             width="13"
@@ -533,28 +527,9 @@ export default function Moodboard() {
             <circle cx="11" cy="11" r="8" />
             <path d="M21 21l-4.35-4.35" />
           </svg>
-          <input
-            ref={searchInputRef}
-            type="text"
-            className="search-input"
-            placeholder="Search… (⌘K)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search tiles"
-          />
-          {searchQuery && (
-            <button
-              className="search-clear-btn"
-              onClick={() => {
-                setSearchQuery("");
-                searchInputRef.current?.focus();
-              }}
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </div>
+          <span className="search-trigger-label">Search…</span>
+          <kbd className="search-trigger-kbd">⌘K</kbd>
+        </button>
 
         {/* Board-only: Surprise Me */}
         {activeTab === "board" && (
@@ -615,14 +590,6 @@ export default function Moodboard() {
           </div>
         </div>
 
-        {showSearchEmpty && (
-          <div className="search-empty-state">
-            <div className="search-empty-inner">
-              <p>No results for &ldquo;{searchQuery}&rdquo;</p>
-            </div>
-          </div>
-        )}
-
         {showHint && (
           <div className={`drag-hint ${hintFading ? "fading" : ""}`}>
             Drag to explore
@@ -644,13 +611,28 @@ export default function Moodboard() {
 
       {/* Discover page — manages its own FAB and modal */}
       {activeTab === "discover" && (
-        <Discover searchQuery={searchQuery} />
+        <Discover
+          spotlightOpen={spotlightOpen}
+          onSpotlightClose={() => setSpotlightOpen(false)}
+        />
       )}
 
       {/* Quotes page — manages its own FAB and modal */}
       {activeTab === "quotes" && (
-        <Quotes searchQuery={searchQuery} />
+        <Quotes
+          spotlightOpen={spotlightOpen}
+          onSpotlightClose={() => setSpotlightOpen(false)}
+        />
       )}
+
+      {/* Board spotlight */}
+      <SpotlightSearch
+        open={spotlightOpen && activeTab === "board"}
+        onClose={() => setSpotlightOpen(false)}
+        items={layoutItems}
+        onSelect={selectBoardItem}
+        placeholder="Search the board…"
+      />
 
       {isModalOpen && (
         <AddItemModal onClose={() => setIsModalOpen(false)} onAdd={addItem} />
