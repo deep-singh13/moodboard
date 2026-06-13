@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { MoodboardItem } from "@/types";
 import { fetchItems, createItem, deleteItem, patchItemComplete, patchItemNote, patchItemEdit } from "@/lib/api";
 import { DiscoverCard } from "@/components/DiscoverCard";
 import { AddDiscoverModal } from "@/components/AddDiscoverModal";
 import { EditDiscoverItemModal } from "@/components/EditDiscoverItemModal";
+import { SpotlightSearch } from "@/components/SpotlightSearch";
 
 type TypeFilter = "all" | "movie" | "reel" | "link";
 type StatusFilter = "all" | "want" | "done";
@@ -25,18 +26,12 @@ function useColumnCount(): number {
 }
 
 interface DiscoverProps {
-  searchQuery: string;
+  spotlightOpen: boolean;
+  onSpotlightClose: () => void;
 }
 
-function matchesSearch(item: MoodboardItem, query: string): boolean {
-  const q = query.toLowerCase().trim();
-  if (!q) return true;
-  return [item.title ?? "", item.subtitle ?? "", item.note ?? ""].some((f) =>
-    f.toLowerCase().includes(q),
-  );
-}
 
-export default function Discover({ searchQuery }: DiscoverProps) {
+export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverProps) {
   const [items, setItems] = useState<MoodboardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -46,6 +41,8 @@ export default function Discover({ searchQuery }: DiscoverProps) {
   const [addError, setAddError] = useState<string | null>(null);
   const [thumbToast, setThumbToast] = useState(false);
   const [editItem, setEditItem] = useState<MoodboardItem | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchItems("discover")
@@ -107,11 +104,22 @@ export default function Discover({ searchQuery }: DiscoverProps) {
     [],
   );
 
+  const selectItem = useCallback((item: MoodboardItem) => {
+    onSpotlightClose();
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    setHighlightId(item.id);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`.discover-page [data-item-id="${item.id}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    highlightTimer.current = setTimeout(() => setHighlightId(null), 1800);
+  }, [onSpotlightClose]);
+
   const displayed = items.filter((item) => {
     if (typeFilter !== "all" && item.type !== typeFilter) return false;
     if (statusFilter === "want" && item.completed) return false;
     if (statusFilter === "done" && !item.completed) return false;
-    if (!matchesSearch(item, searchQuery)) return false;
     return true;
   });
 
@@ -192,6 +200,7 @@ export default function Discover({ searchQuery }: DiscoverProps) {
                   <DiscoverCard
                     key={item.id}
                     item={item}
+                    isHighlighted={item.id === highlightId}
                     onRemove={removeItem}
                     onToggleComplete={toggleComplete}
                     onUpdateNote={updateNote}
@@ -239,6 +248,14 @@ export default function Discover({ searchQuery }: DiscoverProps) {
           Couldn&rsquo;t grab a thumbnail. Hover the card and tap <strong>✎</strong> to add one.
         </div>
       )}
+
+      <SpotlightSearch
+        open={spotlightOpen}
+        onClose={onSpotlightClose}
+        items={items}
+        onSelect={selectItem}
+        placeholder="Search saved items…"
+      />
     </div>
   );
 }
