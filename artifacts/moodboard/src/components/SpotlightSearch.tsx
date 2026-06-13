@@ -27,8 +27,6 @@ const TYPE_BADGE: Record<MoodboardItem["type"], string> = {
   quote: "Quote",
 };
 
-const COLS = 3;
-
 export function SpotlightSearch({
   open,
   onClose,
@@ -39,6 +37,7 @@ export function SpotlightSearch({
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
 
   const results = useMemo(
     () => items.filter((item) => matchesSearch(item, query)),
@@ -60,6 +59,11 @@ export function SpotlightSearch({
     setActive((i) => (i >= results.length ? 0 : i));
   }, [results.length]);
 
+  // Keep the highlighted row visible while arrowing through results.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+
   if (!open) return null;
 
   const commit = (item: MoodboardItem | undefined) => {
@@ -75,14 +79,8 @@ export function SpotlightSearch({
     if (results.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((i) => Math.min(i + COLS, results.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActive((i) => Math.max(i - COLS, 0));
-    } else if (e.key === "ArrowRight") {
-      e.preventDefault();
       setActive((i) => Math.min(i + 1, results.length - 1));
-    } else if (e.key === "ArrowLeft") {
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
@@ -128,28 +126,32 @@ export function SpotlightSearch({
         {results.length === 0 ? (
           <div className="spotlight-empty">No results for &ldquo;{query}&rdquo;</div>
         ) : (
-          <div className="spotlight-grid">
+          <div className="spotlight-results">
             {results.map((item, i) => (
               <button
                 key={item.id}
-                className={`spotlight-tile${i === active ? " active" : ""}`}
+                ref={i === active ? activeRef : undefined}
+                className={`spotlight-row${i === active ? " active" : ""}`}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => commit(item)}
               >
                 {item.imageUrl ? (
-                  <span className="spotlight-tile-thumb">
+                  <span className="spotlight-row-thumb">
                     <img src={item.imageUrl} alt="" loading="lazy" />
                   </span>
                 ) : (
-                  <span className="spotlight-tile-thumb spotlight-tile-thumb--text">
-                    {item.title ?? item.subtitle ?? "Untitled"}
+                  <span
+                    className="spotlight-row-thumb spotlight-row-thumb--text"
+                    aria-hidden="true"
+                  >
+                    &ldquo;&rdquo;
                   </span>
                 )}
-                <span className="spotlight-tile-meta">
-                  <span className="spotlight-tile-title">
+                <span className="spotlight-row-meta">
+                  <span className="spotlight-row-title">
                     {item.title ?? item.subtitle ?? "Untitled"}
                   </span>
-                  <span className="spotlight-tile-badge">{TYPE_BADGE[item.type]}</span>
+                  <span className="spotlight-row-badge">{TYPE_BADGE[item.type]}</span>
                 </span>
               </button>
             ))}
