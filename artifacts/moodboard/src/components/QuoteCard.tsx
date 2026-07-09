@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { MoodboardItem } from "@/types";
 import { QuoteReadMoreModal } from "./QuoteReadMoreModal";
 
@@ -54,7 +55,7 @@ export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }
     const observer = new ResizeObserver(checkOverflow);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [item.title]);
 
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -84,7 +85,7 @@ export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }
     >
       <p ref={textRef} className="quote-card-text quote-card-text--clamped">{item.title}</p>
       {isOverflowing && (
-        <button className="quote-read-more-btn" onClick={handleReadMore}>
+        <button type="button" className="quote-read-more-btn" onClick={handleReadMore}>
           Read more
         </button>
       )}
@@ -108,12 +109,13 @@ export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }
         </svg>
       </button>
 
-      {showFull && (
+      {showFull && createPortal(
         <QuoteReadMoreModal
           text={item.title ?? ""}
           author={item.subtitle}
           onClose={() => setShowFull(false)}
-        />
+        />,
+        document.body,
       )}
     </div>
   );
