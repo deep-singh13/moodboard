@@ -17,6 +17,7 @@ function rowToItem(row: Record<string, unknown>) {
     size: row.size ? Number(row.size) : undefined,
     addedAt: row.added_at,
     completed: row.completed ?? false,
+    pinned: row.pinned ?? false,
     note: (row.note as string | null) ?? undefined,
     board: (row.board as string | null) ?? "moodboard",
     meta: (row.meta as string | null) ?? undefined,
@@ -27,7 +28,7 @@ router.get("/items", async (req, res) => {
   const board = (req.query.board as string | undefined) ?? "moodboard";
   try {
     const result = await pool.query(
-      "SELECT * FROM items WHERE board = $1 ORDER BY added_at ASC",
+      "SELECT * FROM items WHERE board = $1 ORDER BY pinned DESC, added_at DESC",
       [board],
     );
     res.json(result.rows.map(rowToItem));
@@ -87,6 +88,7 @@ router.delete("/items/:id", async (req, res) => {
 router.patch("/items/:id", async (req, res) => {
   const body = req.body as {
     completed?: boolean;
+    pinned?: boolean;
     note?: string | null;
     title?: string | null;
     imageUrl?: string | null;
@@ -97,6 +99,12 @@ router.patch("/items/:id", async (req, res) => {
     if (body.completed !== undefined) {
       await pool.query("UPDATE items SET completed = $1 WHERE id = $2", [
         body.completed,
+        req.params.id,
+      ]);
+    }
+    if (body.pinned !== undefined) {
+      await pool.query("UPDATE items SET pinned = $1 WHERE id = $2", [
+        body.pinned,
         req.params.id,
       ]);
     }

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { MoodboardItem } from "@/types";
-import { fetchItems, createItem, deleteItem, patchItemComplete, patchItemNote, patchItemEdit } from "@/lib/api";
+import { fetchItems, createItem, deleteItem, patchItemComplete, patchItemPinned, patchItemNote, patchItemEdit } from "@/lib/api";
 import { DiscoverCard } from "@/components/DiscoverCard";
 import { AddDiscoverModal } from "@/components/AddDiscoverModal";
 import { EditDiscoverItemModal } from "@/components/EditDiscoverItemModal";
@@ -23,6 +23,13 @@ function useColumnCount(): number {
     return () => window.removeEventListener("resize", update);
   }, []);
   return cols;
+}
+
+function sortItems(items: MoodboardItem[]): MoodboardItem[] {
+  return [...items].sort((a, b) => {
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+  });
 }
 
 interface DiscoverProps {
@@ -51,7 +58,7 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
   }, []);
 
   const addItem = useCallback((item: MoodboardItem) => {
-    setItems((prev) => [...prev, item]);
+    setItems((prev) => sortItems([item, ...prev]));
     // Show thumbnail toast for reels and links that came in without an image
     if (!item.imageUrl && (item.type === "reel" || item.type === "link")) {
       setThumbToast(true);
@@ -76,6 +83,17 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
       );
       const updated = next.find((i) => i.id === id);
       if (updated) patchItemComplete(id, updated.completed ?? false).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const togglePin = useCallback((id: string) => {
+    setItems((prev) => {
+      const next = sortItems(
+        prev.map((i) => (i.id === id ? { ...i, pinned: !i.pinned } : i)),
+      );
+      const updated = next.find((i) => i.id === id);
+      if (updated) patchItemPinned(id, updated.pinned ?? false).catch(() => {});
       return next;
     });
   }, []);
@@ -207,6 +225,7 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
                     isHighlighted={item.id === highlightId}
                     onRemove={removeItem}
                     onToggleComplete={toggleComplete}
+                    onTogglePin={togglePin}
                     onUpdateNote={updateNote}
                     onEdit={(id) => {
                       const found = items.find((i) => i.id === id);

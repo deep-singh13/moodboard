@@ -1881,6 +1881,50 @@ body {
 
 .discover-card:hover .discover-edit-btn { opacity: 1; }
 
+/* ── Pin/favourite toggle button (top-right, left of remove) ── */
+
+.card-pin {
+  position: absolute;
+  top: 8px;
+  right: 40px;
+  width: 26px;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.card-pin:hover {
+  background: rgba(60, 60, 60, 0.85);
+  transform: scale(1.1);
+}
+
+.discover-card:hover .card-pin,
+.quote-card:hover .card-pin {
+  opacity: 1;
+}
+
+.card-pin--active {
+  opacity: 1;
+  background: var(--bg-btn-add);
+  color: #fff;
+}
+
+.card-pin--active:hover {
+  background: var(--bg-btn-add);
+  transform: scale(1.1);
+}
+
 /* ── Thumbnail missing toast ── */
 
 .thumb-toast {

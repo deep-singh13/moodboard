@@ -4,6 +4,7 @@ interface QuoteCardProps {
   item: MoodboardItem;
   onRemove: (id: string) => void;
   onEdit: (id: string) => void;
+  onTogglePin: (id: string) => void;
   isHighlighted?: boolean;
 }
 
@@ -16,13 +17,23 @@ function EditIcon() {
   );
 }
 
-export function QuoteCard({ item, onRemove, onEdit, isHighlighted }: QuoteCardProps) {
+function PinIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 17v5" />
+      <path d="M9 10.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.5l2 3.5H7l2-3.5z" />
+    </svg>
+  );
+}
+
+export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }: QuoteCardProps) {
   const meta: Record<string, string> = (() => {
     try { return item.meta ? JSON.parse(item.meta) : {}; }
     catch { return {}; }
   })();
 
   const color = meta.color ?? "sage";
+  const pinned = !!item.pinned;
 
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -32,6 +43,11 @@ export function QuoteCard({ item, onRemove, onEdit, isHighlighted }: QuoteCardPr
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     onEdit(item.id);
+  };
+
+  const handlePin = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onTogglePin(item.id);
   };
 
   return (
@@ -45,6 +61,14 @@ export function QuoteCard({ item, onRemove, onEdit, isHighlighted }: QuoteCardPr
 
       <button className="discover-edit-btn" onClick={handleEdit} aria-label="Edit quote">
         <EditIcon />
+      </button>
+
+      <button
+        className={`card-pin ${pinned ? "card-pin--active" : ""}`}
+        onClick={handlePin}
+        aria-label={pinned ? "Unpin quote" : "Pin quote"}
+      >
+        <PinIcon />
       </button>
 
       <button className="card-remove" onClick={handleRemove} aria-label="Remove quote">

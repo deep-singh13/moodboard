@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { MoodboardItem } from "@/types";
-import { fetchItems, createItem, deleteItem, patchItemEdit } from "@/lib/api";
+import { fetchItems, createItem, deleteItem, patchItemEdit, patchItemPinned } from "@/lib/api";
 import { QuoteCard } from "@/components/QuoteCard";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
 import { AddQuoteModal } from "@/components/AddQuoteModal";
@@ -22,6 +22,13 @@ function useColumnCount(): number {
   return cols;
 }
 
+
+function sortItems(items: MoodboardItem[]): MoodboardItem[] {
+  return [...items].sort((a, b) => {
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+  });
+}
 
 interface QuotesProps {
   spotlightOpen: boolean;
@@ -45,11 +52,22 @@ export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps)
   }, []);
 
   const addItem = useCallback((item: MoodboardItem) => {
-    setItems((prev) => [...prev, item]);
+    setItems((prev) => sortItems([item, ...prev]));
     createItem(item).catch(() => {
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       setAddError("Couldn't save — check your connection.");
       setTimeout(() => setAddError(null), 4000);
+    });
+  }, []);
+
+  const togglePin = useCallback((id: string) => {
+    setItems((prev) => {
+      const next = sortItems(
+        prev.map((i) => (i.id === id ? { ...i, pinned: !i.pinned } : i)),
+      );
+      const updated = next.find((i) => i.id === id);
+      if (updated) patchItemPinned(id, updated.pinned ?? false).catch(() => {});
+      return next;
     });
   }, []);
 
@@ -157,6 +175,7 @@ export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps)
                     item={item}
                     isHighlighted={item.id === highlightId}
                     onRemove={removeItem}
+                    onTogglePin={togglePin}
                     onEdit={(id) => {
                       const found = items.find((i) => i.id === id);
                       if (found) setEditItem(found);

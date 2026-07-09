@@ -10,6 +10,7 @@ export interface MoodboardItem {
   gridY?: number;
   addedAt: string;
   completed?: boolean;
+  pinned?: boolean;
   note?: string;
   board?: string;  // 'moodboard' | 'discover' — undefined treated as 'moodboard'
   meta?: string;   // JSON string; type-specific extras, parsed by consumers

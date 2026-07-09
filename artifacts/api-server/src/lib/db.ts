@@ -42,4 +42,7 @@ export async function initDb(): Promise<void> {
   await pool.query(`
     ALTER TABLE items ADD COLUMN IF NOT EXISTS meta TEXT
   `);
+  await pool.query(`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT false
+  `);
 }

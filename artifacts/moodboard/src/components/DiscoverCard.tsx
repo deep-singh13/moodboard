@@ -5,6 +5,7 @@ interface DiscoverCardProps {
   item: MoodboardItem;
   onRemove: (id: string) => void;
   onToggleComplete: (id: string) => void;
+  onTogglePin: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
   onEdit?: (id: string) => void;
   isHighlighted?: boolean;
@@ -32,6 +33,15 @@ function EditIcon() {
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 17v5" />
+      <path d="M9 10.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.5l2 3.5H7l2-3.5z" />
     </svg>
   );
 }
@@ -71,13 +81,14 @@ function getTypeIcon(type: string): React.ReactNode {
   );
 }
 
-export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote, onEdit, isHighlighted }: DiscoverCardProps) {
+export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, onUpdateNote, onEdit, isHighlighted }: DiscoverCardProps) {
   const [imgError, setImgError] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [draftNote, setDraftNote] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const completed = !!item.completed;
+  const pinned = !!item.pinned;
   const hasNote = !!(item.note?.trim());
 
   // Parse meta JSON safely
@@ -112,6 +123,11 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote, o
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleComplete(item.id);
+  };
+
+  const handlePin = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onTogglePin(item.id);
   };
 
   const handleEdit = (e: React.MouseEvent) => {
@@ -194,6 +210,15 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onUpdateNote, o
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
+      </button>
+
+      {/* Pin button top-right, left of remove */}
+      <button
+        className={`card-pin ${pinned ? "card-pin--active" : ""}`}
+        onClick={handlePin}
+        aria-label={pinned ? "Unpin item" : "Pin item"}
+      >
+        <PinIcon />
       </button>
 
       {/* Check button bottom-right */}
