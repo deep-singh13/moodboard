@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from "react";
 import type { MoodboardItem } from "@/types";
+import { QuoteReadMoreModal } from "./QuoteReadMoreModal";
 
 interface QuoteCardProps {
   item: MoodboardItem;
@@ -35,6 +37,25 @@ export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }
   const color = meta.color ?? "sage";
   const pinned = !!item.pinned;
 
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [showFull, setShowFull] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+    };
+
+    checkOverflow();
+
+    const observer = new ResizeObserver(checkOverflow);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
     onRemove(item.id);
@@ -50,13 +71,23 @@ export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }
     onTogglePin(item.id);
   };
 
+  const handleReadMore = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowFull(true);
+  };
+
   return (
     <div
       className={`quote-card quote-card--${color}`}
       data-item-id={item.id}
       data-highlight={isHighlighted ? "true" : undefined}
     >
-      <p className="quote-card-text">{item.title}</p>
+      <p ref={textRef} className="quote-card-text quote-card-text--clamped">{item.title}</p>
+      {isOverflowing && (
+        <button className="quote-read-more-btn" onClick={handleReadMore}>
+          Read more
+        </button>
+      )}
       {item.subtitle && <p className="quote-card-author">{item.subtitle}</p>}
 
       <button className="discover-edit-btn" onClick={handleEdit} aria-label="Edit quote">
@@ -76,6 +107,14 @@ export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
       </button>
+
+      {showFull && (
+        <QuoteReadMoreModal
+          text={item.title ?? ""}
+          author={item.subtitle}
+          onClose={() => setShowFull(false)}
+        />
+      )}
     </div>
   );
 }
