@@ -1,8 +1,32 @@
 import { useState, useRef } from "react";
 import type { MoodboardItem } from "@/types";
 
-const QUOTE_COLORS = ["sage", "blush", "lavender", "peach", "sky", "slate"] as const;
+const QUOTE_COLORS = [
+  "bleached-apricot",
+  "sea-salt",
+  "deep-claret",
+  "cowhide",
+  "radiant-orchid",
+  "banana-pudding",
+  "chili-pepper",
+  "guava-jam",
+  "rosette",
+  "honey",
+] as const;
 type QuoteColor = typeof QUOTE_COLORS[number];
+
+const QUOTE_COLOR_LABELS: Record<QuoteColor, string> = {
+  "bleached-apricot": "Bleached Apricot",
+  "sea-salt": "Sea Salt",
+  "deep-claret": "Deep Claret",
+  cowhide: "Cowhide",
+  "radiant-orchid": "Radiant Orchid",
+  "banana-pudding": "Banana Pudding",
+  "chili-pepper": "Chili Pepper",
+  "guava-jam": "Guava Jam",
+  rosette: "Rosette",
+  honey: "Honey",
+};
 
 interface EditQuoteModalProps {
   item: MoodboardItem;
@@ -18,7 +42,7 @@ export function EditQuoteModal({ item, onClose, onSave }: EditQuoteModalProps) {
 
   const [text, setText] = useState(item.title ?? "");
   const [author, setAuthor] = useState(item.subtitle ?? "");
-  const [color, setColor] = useState<QuoteColor>((initialMeta.color as QuoteColor) ?? "sage");
+  const [color, setColor] = useState<QuoteColor>((initialMeta.color as QuoteColor) ?? "bleached-apricot");
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -73,7 +97,7 @@ export function EditQuoteModal({ item, onClose, onSave }: EditQuoteModalProps) {
                   className={`quote-color-pill quote-color-pill--${c}${color === c ? " selected" : ""}`}
                   onClick={() => setColor(c)}
                 >
-                  {c.charAt(0).toUpperCase() + c.slice(1)}
+                  {QUOTE_COLOR_LABELS[c]}
                 </button>
               ))}
             </div>

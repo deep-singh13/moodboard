@@ -82,13 +82,17 @@
   /* Dot grid */
   --dot-color: rgba(0, 0, 0, 0.055);
 
-  /* Quote card colors — light mode */
-  --quote-bg-sage:     oklch(0.89 0.05 145);
-  --quote-bg-blush:    oklch(0.89 0.05 10);
-  --quote-bg-lavender: oklch(0.89 0.05 290);
-  --quote-bg-peach:    oklch(0.89 0.06 55);
-  --quote-bg-sky:      oklch(0.89 0.05 230);
-  --quote-bg-slate:    oklch(0.89 0.04 250);
+  /* Quote card colors — fixed Pantone swatches, same in light/dark mode */
+  --quote-bg-bleached-apricot: #FCCAAC;
+  --quote-bg-sea-salt:         #F1E6DF;
+  --quote-bg-deep-claret:      #973443;
+  --quote-bg-cowhide:          #884344;
+  --quote-bg-radiant-orchid:   #AD5E99;
+  --quote-bg-banana-pudding:   #D4B265;
+  --quote-bg-chili-pepper:     #9B1B30;
+  --quote-bg-guava-jam:        #B7434D;
+  --quote-bg-rosette:          #CE8F8B;
+  --quote-bg-honey:            #BA9238;
   --quote-text:        var(--text-primary);
 }
 
@@ -137,13 +141,8 @@
   /* Dot grid */
   --dot-color: rgba(255, 255, 255, 0.04);
 
-  /* Quote card colors — dark mode */
-  --quote-bg-sage:     oklch(0.24 0.05 145);
-  --quote-bg-blush:    oklch(0.24 0.05 10);
-  --quote-bg-lavender: oklch(0.24 0.05 290);
-  --quote-bg-peach:    oklch(0.24 0.06 55);
-  --quote-bg-sky:      oklch(0.24 0.05 230);
-  --quote-bg-slate:    oklch(0.24 0.04 250);
+  /* Quote card background swatches are fixed (defined once in :root); only
+     the theme-adaptive default text color is redefined here. */
   --quote-text:        oklch(0.92 0.006 70);
 }
 
@@ -2014,12 +2013,35 @@ body {
 }
 
 /* Color variants */
-.quote-card--sage     { background: var(--quote-bg-sage);     }
-.quote-card--blush    { background: var(--quote-bg-blush);    }
-.quote-card--lavender { background: var(--quote-bg-lavender); }
-.quote-card--peach    { background: var(--quote-bg-peach);    }
-.quote-card--sky      { background: var(--quote-bg-sky);      }
-.quote-card--slate    { background: var(--quote-bg-slate);    }
+.quote-card--bleached-apricot { background: var(--quote-bg-bleached-apricot); }
+.quote-card--sea-salt         { background: var(--quote-bg-sea-salt);         }
+.quote-card--deep-claret      { background: var(--quote-bg-deep-claret);      }
+.quote-card--cowhide          { background: var(--quote-bg-cowhide);          }
+.quote-card--radiant-orchid   { background: var(--quote-bg-radiant-orchid);   }
+.quote-card--banana-pudding   { background: var(--quote-bg-banana-pudding);   }
+.quote-card--chili-pepper     { background: var(--quote-bg-chili-pepper);     }
+.quote-card--guava-jam        { background: var(--quote-bg-guava-jam);        }
+.quote-card--rosette          { background: var(--quote-bg-rosette);          }
+.quote-card--honey            { background: var(--quote-bg-honey);            }
+
+/* Swatch backgrounds are fixed hex values (not theme-adaptive), so text
+   color must be pinned per swatch for contrast rather than following the
+   light/dark theme's default --quote-text. */
+.quote-card--bleached-apricot,
+.quote-card--sea-salt,
+.quote-card--banana-pudding,
+.quote-card--rosette,
+.quote-card--honey {
+  --quote-text: oklch(0.21 0.012 70);
+}
+
+.quote-card--deep-claret,
+.quote-card--cowhide,
+.quote-card--radiant-orchid,
+.quote-card--chili-pepper,
+.quote-card--guava-jam {
+  --quote-text: oklch(0.93 0.006 70);
+}
 
 .quote-card-text {
   font-family: 'Libre Baskerville', Georgia, serif;
@@ -2098,12 +2120,24 @@ body {
   transform: translateY(-1px);
 }
 
-.quote-color-pill--sage     { background: oklch(0.89 0.05 145); }
-.quote-color-pill--blush    { background: oklch(0.89 0.05 10);  }
-.quote-color-pill--lavender { background: oklch(0.89 0.05 290); }
-.quote-color-pill--peach    { background: oklch(0.89 0.06 55);  }
-.quote-color-pill--sky      { background: oklch(0.89 0.05 230); }
-.quote-color-pill--slate    { background: oklch(0.89 0.04 250); }
+.quote-color-pill--bleached-apricot { background: var(--quote-bg-bleached-apricot); }
+.quote-color-pill--sea-salt         { background: var(--quote-bg-sea-salt);         }
+.quote-color-pill--deep-claret      { background: var(--quote-bg-deep-claret);      }
+.quote-color-pill--cowhide          { background: var(--quote-bg-cowhide);          }
+.quote-color-pill--radiant-orchid   { background: var(--quote-bg-radiant-orchid);   }
+.quote-color-pill--banana-pudding   { background: var(--quote-bg-banana-pudding);   }
+.quote-color-pill--chili-pepper     { background: var(--quote-bg-chili-pepper);     }
+.quote-color-pill--guava-jam        { background: var(--quote-bg-guava-jam);        }
+.quote-color-pill--rosette          { background: var(--quote-bg-rosette);          }
+.quote-color-pill--honey            { background: var(--quote-bg-honey);            }
+
+.quote-color-pill--deep-claret,
+.quote-color-pill--cowhide,
+.quote-color-pill--radiant-orchid,
+.quote-color-pill--chili-pepper,
+.quote-color-pill--guava-jam {
+  color: oklch(0.93 0.006 70);
+}
 
 .quote-color-pill.selected {
   border-color: oklch(0.28 0.02 70 / 0.55);

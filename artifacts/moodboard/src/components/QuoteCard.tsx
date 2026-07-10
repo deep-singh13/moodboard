@@ -35,7 +35,7 @@ export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }
     catch { return {}; }
   })();
 
-  const color = meta.color ?? "sage";
+  const color = meta.color ?? "bleached-apricot";
   const pinned = !!item.pinned;
 
   const [isOverflowing, setIsOverflowing] = useState(false);
