@@ -43,10 +43,54 @@ export function normalizeAvailability(raw: string | undefined): Availability {
 function firstFiniteNumber(...values: unknown[]): number | undefined {
   for (const v of values) {
     if (v === undefined || v === null || v === "") continue;
-    const n = Number(v);
+    // Strip thousands separators / currency symbols ("1,799.00", "$19.99") —
+    // Number() returns NaN on a raw comma-formatted string.
+    const cleaned = typeof v === "string" ? v.replace(/[^\d.-]/g, "") : v;
+    const n = Number(cleaned);
     if (Number.isFinite(n)) return n;
   }
   return undefined;
+}
+
+function offerToPriceInfo(offersRaw: unknown): PriceInfo | undefined {
+  const offers = Array.isArray(offersRaw) ? offersRaw[0] : offersRaw;
+  if (!offers || typeof offers !== "object") return undefined;
+  const o = offers as Record<string, unknown>;
+
+  const price = firstFiniteNumber(o.price, o.lowPrice, o.highPrice);
+  if (price === undefined) return undefined;
+
+  return {
+    price,
+    currency: typeof o.priceCurrency === "string" ? o.priceCurrency : undefined,
+    availability: normalizeAvailability(
+      typeof o.availability === "string" ? o.availability : undefined,
+    ),
+  };
+}
+
+/** Shopify (and other storefronts) often model a product page as a
+ *  `ProductGroup` whose priced/stocked `Offer`s live one level down, on each
+ *  `hasVariant` entry — there's no top-level `offers` to read directly. This
+ *  picks the cheapest variant's price and reports in-stock if any variant is. */
+function variantGroupToPriceInfo(node: Record<string, unknown>): PriceInfo | undefined {
+  if (!Array.isArray(node.hasVariant)) return undefined;
+  const variantInfos = (node.hasVariant as unknown[])
+    .map((v) => (v && typeof v === "object" ? offerToPriceInfo((v as Record<string, unknown>).offers) : undefined))
+    .filter((info): info is PriceInfo => !!info);
+  if (variantInfos.length === 0) return undefined;
+
+  const cheapest = variantInfos.reduce((min, cur) =>
+    (cur.price ?? Infinity) < (min.price ?? Infinity) ? cur : min,
+  );
+  const anyInStock = variantInfos.some((v) => v.availability === "in_stock");
+  const allOutOfStock = variantInfos.every((v) => v.availability === "out_of_stock");
+
+  return {
+    price: cheapest.price,
+    currency: cheapest.currency,
+    availability: anyInStock ? "in_stock" : allOutOfStock ? "out_of_stock" : "unknown",
+  };
 }
 
 export function parseJsonLdProduct(html: string): PriceInfo {
@@ -69,24 +113,17 @@ export function parseJsonLdProduct(html: string): PriceInfo {
         if (!node || typeof node !== "object") continue;
         const n = node as Record<string, unknown>;
         const type = n["@type"];
-        const isProduct = type === "Product" || (Array.isArray(type) && type.includes("Product"));
-        if (!isProduct) continue;
+        const types = Array.isArray(type) ? type : [type];
 
-        const offersRaw = n.offers;
-        const offers = Array.isArray(offersRaw) ? offersRaw[0] : offersRaw;
-        if (!offers || typeof offers !== "object") continue;
-        const o = offers as Record<string, unknown>;
+        if (types.includes("Product")) {
+          const info = offerToPriceInfo(n.offers);
+          if (info) return info;
+        }
 
-        const price = firstFiniteNumber(o.price, o.lowPrice, o.highPrice);
-        if (price === undefined) continue;
-
-        return {
-          price,
-          currency: typeof o.priceCurrency === "string" ? o.priceCurrency : undefined,
-          availability: normalizeAvailability(
-            typeof o.availability === "string" ? o.availability : undefined,
-          ),
-        };
+        if (types.includes("ProductGroup")) {
+          const info = variantGroupToPriceInfo(n);
+          if (info) return info;
+        }
       }
     }
   }
@@ -128,8 +165,11 @@ export async function fetchPriceInfo(url: string): Promise<PriceInfo & { fetchFa
     const response = await safeFetch(url, {
       headers: {
         "User-Agent": BROWSER_UA,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
       },
       signal: AbortSignal.timeout(10000),
     });
