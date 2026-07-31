@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { MoodboardItem } from "@/types";
-import { fetchItems, createItem, deleteItem, patchItemComplete, patchItemPinned, patchItemNote, patchItemEdit } from "@/lib/api";
+import { fetchItems, createItem, deleteItem, patchItemComplete, patchItemPinned, patchItemNote, patchItemEdit, refreshItemPrice } from "@/lib/api";
 import { DiscoverCard } from "@/components/DiscoverCard";
 import { AddDiscoverModal } from "@/components/AddDiscoverModal";
 import { EditDiscoverItemModal } from "@/components/EditDiscoverItemModal";
@@ -48,6 +48,7 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
   const [addError, setAddError] = useState<string | null>(null);
   const [thumbToast, setThumbToast] = useState(false);
   const [editItem, setEditItem] = useState<MoodboardItem | null>(null);
+  const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -57,6 +58,22 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
       .catch(() => { setLoadError(true); setLoading(false); });
   }, []);
 
+  const refreshPrice = useCallback((id: string) => {
+    setRefreshingIds((prev) => new Set(prev).add(id));
+    refreshItemPrice(id)
+      .then((updated) => {
+        setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
+      })
+      .catch(() => {})
+      .finally(() => {
+        setRefreshingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      });
+  }, []);
+
   const addItem = useCallback((item: MoodboardItem) => {
     setItems((prev) => sortItems([item, ...prev]));
     // Show thumbnail toast for reels and links that came in without an image
@@ -64,12 +81,16 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
       setThumbToast(true);
       setTimeout(() => setThumbToast(false), 5000);
     }
-    createItem(item).catch(() => {
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      setAddError("Couldn't save — check your connection.");
-      setTimeout(() => setAddError(null), 4000);
-    });
-  }, []);
+    createItem(item)
+      .then(() => {
+        if (item.type === "link") refreshPrice(item.id);
+      })
+      .catch(() => {
+        setItems((prev) => prev.filter((i) => i.id !== item.id));
+        setAddError("Couldn't save — check your connection.");
+        setTimeout(() => setAddError(null), 4000);
+      });
+  }, [refreshPrice]);
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -227,6 +248,8 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
                     onToggleComplete={toggleComplete}
                     onTogglePin={togglePin}
                     onUpdateNote={updateNote}
+                    onRefreshPrice={refreshPrice}
+                    isRefreshingPrice={refreshingIds.has(item.id)}
                     onEdit={(id) => {
                       const found = items.find((i) => i.id === id);
                       if (found) setEditItem(found);

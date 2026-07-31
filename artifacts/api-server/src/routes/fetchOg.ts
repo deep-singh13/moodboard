@@ -3,7 +3,7 @@ import sharp from "sharp";
 
 const router: IRouter = Router();
 
-const BROWSER_UA =
+export const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ async function fetchYouTubeMeta(_url: string, videoId: string): Promise<{
 // Used for normal websites (saves Microlink quota for the hard cases).
 // ─────────────────────────────────────────────────────────────────────────────
 
-function extractMetaContent(
+export function extractMetaContent(
   html: string,
   attr: "property" | "name",
   value: string,

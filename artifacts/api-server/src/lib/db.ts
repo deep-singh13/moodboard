@@ -45,4 +45,16 @@ export async function initDb(): Promise<void> {
   await pool.query(`
     ALTER TABLE items ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT false
   `);
+  await pool.query(`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS price NUMERIC
+  `);
+  await pool.query(`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS currency TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS availability TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS price_updated_at TIMESTAMPTZ
+  `);
 }

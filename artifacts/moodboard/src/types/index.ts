@@ -14,6 +14,10 @@ export interface MoodboardItem {
   note?: string;
   board?: string;  // 'moodboard' | 'discover' — undefined treated as 'moodboard'
   meta?: string;   // JSON string; type-specific extras, parsed by consumers
+  price?: number;
+  currency?: string;
+  availability?: "in_stock" | "out_of_stock" | "unknown";
+  priceUpdatedAt?: string;
 }
 
 export interface MovieResult {

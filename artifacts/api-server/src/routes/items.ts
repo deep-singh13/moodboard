@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { pool } from "../lib/db";
+import { fetchPriceInfo } from "../lib/fetchPrice";
 
 const router: IRouter = Router();
 
@@ -21,7 +22,42 @@ function rowToItem(row: Record<string, unknown>) {
     note: (row.note as string | null) ?? undefined,
     board: (row.board as string | null) ?? "moodboard",
     meta: (row.meta as string | null) ?? undefined,
+    price: row.price !== null && row.price !== undefined ? Number(row.price) : undefined,
+    currency: (row.currency as string | null) ?? undefined,
+    availability: (row.availability as string | null) ?? undefined,
+    priceUpdatedAt: (row.price_updated_at as string | null) ?? undefined,
   };
+}
+
+/** Runs async tasks with a concurrency cap so a large bulk refresh doesn't
+ *  fire dozens of simultaneous outbound requests at once. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+async function refreshItemPriceRow(id: string, url: string) {
+  const info = await fetchPriceInfo(url);
+  const result = await pool.query(
+    `UPDATE items
+       SET price = $1, currency = $2, availability = $3, price_updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+    [info.price ?? null, info.currency ?? null, info.availability ?? "unknown", id],
+  );
+  return result.rows[0] ? rowToItem(result.rows[0]) : null;
 }
 
 router.get("/items", async (req, res) => {
@@ -150,6 +186,40 @@ router.patch("/items/:id", async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Failed to update item" });
+  }
+});
+
+router.post("/items/refresh-prices", async (_req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, url FROM items WHERE board = 'discover' AND type = 'link' AND url IS NOT NULL",
+    );
+    const rows = result.rows as Array<{ id: string; url: string }>;
+    const updated = await mapWithConcurrency(rows, 4, (row) =>
+      refreshItemPriceRow(row.id, row.url),
+    );
+    res.json({ items: updated.filter((item) => item !== null) });
+  } catch {
+    res.status(500).json({ error: "Failed to refresh prices" });
+  }
+});
+
+router.post("/items/:id/refresh-price", async (req, res) => {
+  try {
+    const existing = await pool.query("SELECT url FROM items WHERE id = $1", [req.params.id]);
+    const url = existing.rows[0]?.url as string | undefined;
+    if (!url) {
+      res.status(404).json({ error: "Item not found" });
+      return;
+    }
+    const item = await refreshItemPriceRow(req.params.id, url);
+    if (!item) {
+      res.status(404).json({ error: "Item not found" });
+      return;
+    }
+    res.json(item);
+  } catch {
+    res.status(500).json({ error: "Failed to refresh price" });
   }
 });
 

@@ -8,6 +8,8 @@ interface DiscoverCardProps {
   onTogglePin: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
   onEdit?: (id: string) => void;
+  onRefreshPrice?: (id: string) => void;
+  isRefreshingPrice?: boolean;
   isHighlighted?: boolean;
 }
 
@@ -46,6 +48,28 @@ function PinIcon() {
   );
 }
 
+function RefreshIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 4v6h-6" />
+      <path d="M1 20v-6h6" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
+function formatPrice(price: number, currency?: string): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "USD",
+      maximumFractionDigits: 2,
+    }).format(price);
+  } catch {
+    return `$${price.toFixed(2)}`;
+  }
+}
+
 function getStatusLabel(type: string, completed: boolean): string {
   if (type === "movie") return completed ? "Watched ✓" : "Want to watch";
   if (type === "reel")  return completed ? "Seen ✓"    : "Saved";
@@ -81,7 +105,7 @@ function getTypeIcon(type: string): React.ReactNode {
   );
 }
 
-export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, onUpdateNote, onEdit, isHighlighted }: DiscoverCardProps) {
+export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, onUpdateNote, onEdit, onRefreshPrice, isRefreshingPrice, isHighlighted }: DiscoverCardProps) {
   const [imgError, setImgError] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [draftNote, setDraftNote] = useState("");
@@ -133,6 +157,11 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, on
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     onEdit?.(item.id);
+  };
+
+  const handleRefreshPrice = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRefreshPrice?.(item.id);
   };
 
   const openNoteEdit = (e: React.MouseEvent) => {
@@ -195,9 +224,34 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, on
       <div className="discover-card-body">
         {item.title && <p className="discover-card-title">{item.title}</p>}
         {item.subtitle && <p className="discover-card-subtitle">{item.subtitle}</p>}
-        <span className={`discover-type-badge discover-type-badge--${item.type}`}>
-          {getTypeIcon(item.type)} {getTypeBadgeLabel(item.type)}
-        </span>
+        <div className="discover-badge-row">
+          <span className={`discover-type-badge discover-type-badge--${item.type}`}>
+            {getTypeIcon(item.type)} {getTypeBadgeLabel(item.type)}
+          </span>
+          {item.type === "link" && (
+            <>
+              {item.price != null && (
+                <span className="discover-price-pill">{formatPrice(item.price, item.currency)}</span>
+              )}
+              {item.availability && item.availability !== "unknown" && (
+                <span
+                  className={`discover-availability-pill discover-availability-pill--${item.availability}`}
+                >
+                  {item.availability === "in_stock" ? "In stock" : "Out of stock"}
+                </span>
+              )}
+              <button
+                type="button"
+                className={`discover-refresh-btn ${isRefreshingPrice ? "is-refreshing" : ""}`}
+                onClick={handleRefreshPrice}
+                disabled={isRefreshingPrice}
+                aria-label="Refresh price"
+              >
+                <RefreshIcon />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Edit button top-left */}

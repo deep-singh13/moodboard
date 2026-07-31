@@ -76,6 +76,19 @@ export async function patchItemEdit(
   if (!res.ok) throw new Error(`Failed to update item: ${res.status}`);
 }
 
+export async function refreshItemPrice(id: string): Promise<MoodboardItem> {
+  const res = await fetch(`${BASE}/items/${id}/refresh-price`, { method: "POST" });
+  if (!res.ok) throw new Error(`Failed to refresh price: ${res.status}`);
+  return res.json();
+}
+
+export async function refreshAllPrices(): Promise<MoodboardItem[]> {
+  const res = await fetch(`${BASE}/items/refresh-prices`, { method: "POST" });
+  if (!res.ok) throw new Error(`Failed to refresh prices: ${res.status}`);
+  const data = (await res.json()) as { items: MoodboardItem[] };
+  return data.items;
+}
+
 export async function fetchOgMeta(url: string): Promise<{
   title?: string;
   description?: string;

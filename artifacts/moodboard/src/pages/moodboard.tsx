@@ -10,6 +10,7 @@ import {
   deleteItem,
   patchItemComplete,
   patchItemNote,
+  refreshAllPrices,
 } from "@/lib/api";
 import Discover from "@/pages/discover";
 import Quotes from "@/pages/quotes";
@@ -229,6 +230,14 @@ export default function Moodboard() {
         setLoadError(true);
         setLoading(false);
       });
+  }, []);
+
+  // Product prices/availability go stale while the app is closed (and this
+  // runs on a Render free-tier backend that sleeps after 15min idle anyway),
+  // so warm them every time the app loads rather than waiting for a manual
+  // refresh on the Discover tab.
+  useEffect(() => {
+    refreshAllPrices().catch(() => {});
   }, []);
 
   useEffect(() => {
