@@ -5,16 +5,10 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "ingest-places": "tsx ./src/ingestDistrictPlaces.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
-  },
-  "dependencies": {
-    "dotenv": "^16.4.7",
-    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@types/pg": "^8.18.0",
     "tsx": "catalog:"
   }
 }

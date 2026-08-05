@@ -1,28 +1,28 @@
-import "dotenv/config";
 import { gunzipSync } from "node:zlib";
-import pg from "pg";
+import { pool } from "./db";
+import { BROWSER_UA } from "../routes/fetchOg";
+import { logger } from "./logger";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Populates the `district_places` table from District's public dining sitemap,
-// so the Places tab can offer name search locally.
+// Populates `district_places` from District's public dining sitemap so the
+// Places tab can offer name search locally.
 //
 // Why a local index rather than calling District's search: their search API
 // (POST /gw/web/search) is auth-gated behind a private guest token, and their
 // /search page is a client-rendered shell with no results in the HTML. The
-// sitemap is the one interface they publish for exactly this purpose.
+// sitemap is the one interface they publish for this.
 //
-// The sitemap holds ~450k restaurants across India, so by default we keep only
-// Delhi NCR (~37k). Set DISTRICT_INGEST_CITIES to a comma-separated list to
-// widen it — e.g. `ncr,mumbai,bangalore` — then re-run. Re-running is safe and
-// incremental: existing slugs are left alone.
-//
-//   pnpm --filter @workspace/scripts run ingest-places
+// This runs itself on boot — see ensureDistrictIndex() — so a deploy needs no
+// manual step. The sitemap holds ~450k restaurants across India, so by default
+// only Delhi NCR (~37k) is kept. Set DISTRICT_INGEST_CITIES to a comma-separated
+// list to widen it (e.g. `ncr,mumbai,bangalore`); the next boot notices the new
+// city has no rows and ingests just that one.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SITEMAP_INDEX = "https://www.district.in/dining/search-sitemap/sitemap-dining.xml";
-const BROWSER_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const SITEMAP_INDEX =
+  "https://www.district.in/dining/search-sitemap/sitemap-dining.xml";
 const BATCH_SIZE = 1000;
+const FETCH_TIMEOUT_MS = 60000;
 
 interface PlaceRow {
   slug: string;
@@ -31,7 +31,7 @@ interface PlaceRow {
   url: string;
 }
 
-function targetCities(): Set<string> {
+export function targetCities(): Set<string> {
   const raw = process.env.DISTRICT_INGEST_CITIES ?? "ncr";
   return new Set(
     raw
@@ -44,7 +44,7 @@ function targetCities(): Set<string> {
 async function fetchBuffer(url: string): Promise<Buffer> {
   const res = await fetch(url, {
     headers: { "User-Agent": BROWSER_UA },
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
   return Buffer.from(await res.arrayBuffer());
@@ -57,7 +57,7 @@ function extractLocs(xml: string): string[] {
 /** `https://www.district.in/dining/ncr/cafe-delhi-heights-khan-market-new-delhi`
  *  → city `ncr`, slug `ncr/cafe-delhi-heights-khan-market-new-delhi`,
  *    nameText `cafe delhi heights khan market new delhi`. */
-function toRow(url: string, cities: Set<string>): PlaceRow | null {
+export function toRow(url: string, cities: Set<string>): PlaceRow | null {
   let path: string;
   try {
     path = new URL(url).pathname;
@@ -79,7 +79,7 @@ function toRow(url: string, cities: Set<string>): PlaceRow | null {
   return { slug: `${city}/${rest[0]}`, city, nameText, url };
 }
 
-async function insertBatch(pool: pg.Pool, rows: PlaceRow[]): Promise<void> {
+async function insertBatch(rows: PlaceRow[]): Promise<void> {
   if (rows.length === 0) return;
   const values: string[] = [];
   const params: string[] = [];
@@ -96,44 +96,17 @@ async function insertBatch(pool: pg.Pool, rows: PlaceRow[]): Promise<void> {
   );
 }
 
-async function main(): Promise<void> {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error("DATABASE_URL environment variable is required.");
-  }
-
-  const cities = targetCities();
-  console.log(`Ingesting District restaurants for: ${[...cities].join(", ")}`);
-
-  const pool = new pg.Pool({
-    connectionString,
-    ssl: connectionString.includes("sslmode=require")
-      ? { rejectUnauthorized: false }
-      : undefined,
-  });
-
-  // The table is normally created by the api-server's initDb(), but the ingest
-  // may well run first on a fresh database.
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS district_places (
-      slug      TEXT PRIMARY KEY,
-      city      TEXT NOT NULL,
-      name_text TEXT NOT NULL,
-      url       TEXT NOT NULL
-    )
-  `);
-  await pool.query(
-    `CREATE INDEX IF NOT EXISTS district_places_city_idx ON district_places (city)`,
-  );
-
+export async function ingestDistrictPlaces(cities: Set<string>): Promise<number> {
   const index = (await fetchBuffer(SITEMAP_INDEX)).toString("utf8");
   const chunkUrls = extractLocs(index);
-  console.log(`Sitemap index lists ${chunkUrls.length} chunks`);
+  logger.info({ chunks: chunkUrls.length }, "District sitemap index fetched");
 
   let matched = 0;
 
   // Every chunk is scanned rather than assuming a city sits in a known one —
-  // District is free to re-shard these at any time. It's only ~7MB gzipped total.
+  // District is free to re-shard these at any time. Only ~7MB gzipped in total,
+  // and each chunk is decompressed and discarded one at a time to keep the
+  // footprint small on a modest instance.
   for (const [i, chunkUrl] of chunkUrls.entries()) {
     const raw = await fetchBuffer(chunkUrl);
     const xml = (chunkUrl.endsWith(".gz") ? gunzipSync(raw) : raw).toString("utf8");
@@ -145,24 +118,63 @@ async function main(): Promise<void> {
     }
 
     for (let start = 0; start < rows.length; start += BATCH_SIZE) {
-      await insertBatch(pool, rows.slice(start, start + BATCH_SIZE));
+      await insertBatch(rows.slice(start, start + BATCH_SIZE));
     }
     matched += rows.length;
-    console.log(
-      `  chunk ${i + 1}/${chunkUrls.length}: ${rows.length} matching (${matched} total)`,
-    );
+    if (rows.length > 0) {
+      logger.info(
+        { chunk: `${i + 1}/${chunkUrls.length}`, added: rows.length, total: matched },
+        "District sitemap chunk ingested",
+      );
+    }
   }
 
-  const { rows: counts } = await pool.query(
-    `SELECT city, count(*)::int AS n FROM district_places GROUP BY city ORDER BY n DESC`,
-  );
-  console.log("\nRows in district_places:");
-  for (const c of counts) console.log(`  ${c.city}: ${c.n}`);
-
-  await pool.end();
+  return matched;
 }
 
-main().catch((err) => {
-  console.error("Ingest failed:", err);
-  process.exit(1);
-});
+/**
+ * Boot hook: ingest any configured city that has no rows yet, then stop.
+ *
+ * Deliberately keyed on per-city row counts rather than a "has this ever run"
+ * flag. That makes it a no-op on every ordinary restart (which matters on a
+ * free instance that sleeps and cold-starts often), while still picking up a
+ * newly added city in DISTRICT_INGEST_CITIES without any manual step.
+ *
+ * Never throws: a District outage must not stop the server from serving
+ * everything else.
+ */
+export async function ensureDistrictIndex(): Promise<void> {
+  try {
+    const cities = targetCities();
+    if (cities.size === 0) return;
+
+    const { rows } = await pool.query(
+      `SELECT city, count(*)::int AS n FROM district_places GROUP BY city`,
+    );
+    const counts = new Map(
+      (rows as Array<{ city: string; n: number }>).map((r) => [r.city, r.n]),
+    );
+
+    const missing = new Set([...cities].filter((c) => (counts.get(c) ?? 0) === 0));
+    if (missing.size === 0) {
+      logger.info(
+        { cities: [...cities].join(",") },
+        "District index already populated — skipping ingest",
+      );
+      return;
+    }
+
+    logger.info(
+      { cities: [...missing].join(",") },
+      "District index empty for these cities — ingesting from sitemap",
+    );
+    const started = Date.now();
+    const total = await ingestDistrictPlaces(missing);
+    logger.info(
+      { rows: total, seconds: Math.round((Date.now() - started) / 1000) },
+      "District index ingest complete",
+    );
+  } catch (err) {
+    logger.error({ err }, "District index ingest failed — Places name search will be empty until the next restart");
+  }
+}

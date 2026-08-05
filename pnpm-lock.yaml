@@ -647,20 +647,10 @@ importers:
         version: 0.31.9
 
   scripts:
-    dependencies:
-      dotenv:
-        specifier: ^16.4.7
-        version: 16.6.1
-      pg:
-        specifier: ^8.20.0
-        version: 8.20.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
-      '@types/pg':
-        specifier: ^8.18.0
-        version: 8.18.0
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
