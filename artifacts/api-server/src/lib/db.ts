@@ -57,4 +57,20 @@ export async function initDb(): Promise<void> {
   await pool.query(`
     ALTER TABLE items ADD COLUMN IF NOT EXISTS price_updated_at TIMESTAMPTZ
   `);
+
+  // Searchable index of District (district.in) restaurant pages, populated from
+  // their public dining sitemap by scripts/src/ingestDistrictPlaces.ts. Lets the
+  // Places tab offer name search without depending on District's own search API,
+  // which is auth-gated. Empty until that script is run.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS district_places (
+      slug      TEXT PRIMARY KEY,
+      city      TEXT NOT NULL,
+      name_text TEXT NOT NULL,
+      url       TEXT NOT NULL
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS district_places_city_idx ON district_places (city)
+  `);
 }

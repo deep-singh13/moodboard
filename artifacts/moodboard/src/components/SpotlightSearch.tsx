@@ -25,6 +25,7 @@ const TYPE_BADGE: Record<MoodboardItem["type"], string> = {
   movie: "Movie",
   reel: "Reel",
   quote: "Quote",
+  place: "Place",
 };
 
 export function SpotlightSearch({

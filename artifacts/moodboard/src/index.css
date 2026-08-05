@@ -2415,3 +2415,346 @@ body {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.12);
 }
+
+/* ============================================================
+   PLACES — cafés & restaurants saved from District
+   ============================================================ */
+
+/* Cards reuse the Discover shell; only what differs is defined here. */
+.discover-card-img--place         { aspect-ratio: 4 / 3; }
+.discover-card-placeholder--place { aspect-ratio: 4 / 3; }
+
+.place-card { cursor: pointer; }
+
+.place-rating-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-eyebrow);
+  background: rgba(76, 175, 80, 0.14);
+  color: oklch(0.58 0.10 145);
+}
+
+.place-rating-count {
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.place-hours-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  background: var(--bg-skeleton);
+  color: var(--text-secondary);
+}
+
+/* Map shortcut on the card — small, but a real link so it can be
+   opened in a new tab / long-pressed like any other. */
+.place-map-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  background: rgba(66, 133, 244, 0.14);
+  color: oklch(0.58 0.13 255);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.place-map-pill:hover { background: rgba(66, 133, 244, 0.24); }
+
+/* ─── Detail sheet ─── */
+
+.modal-drawer.place-detail {
+  max-height: 88vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.place-detail-header { margin-bottom: var(--space-6); }
+
+.place-detail-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+
+.place-detail-cuisines {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-top: var(--space-2);
+}
+
+.place-detail-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.place-detail-section { margin-bottom: var(--space-6); }
+
+.place-detail-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-4);
+}
+
+.place-detail-count {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+
+.place-detail-plain,
+.place-detail-note {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* The whole row is the tap target — on mobile this hands off to the
+   Google Maps app via the ?api=1 universal link. */
+.place-map-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-input);
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s;
+}
+
+.place-map-link:hover {
+  background: var(--bg-skeleton);
+  border-color: var(--bg-btn-add);
+  transform: translateY(-1px);
+}
+
+.place-map-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(66, 133, 244, 0.14);
+  color: oklch(0.58 0.13 255);
+}
+
+.place-map-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.place-map-link-text strong {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+.place-map-link-text span {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.place-phone-link {
+  display: inline-block;
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.place-phone-link:hover { color: var(--text-link); text-decoration: underline; }
+
+/* Ambiance photos — horizontal strip, bleeds to the sheet edge */
+.place-photo-strip {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  padding-bottom: var(--space-2);
+  margin: 0 -24px;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.place-photo-thumb {
+  flex: 0 0 auto;
+  width: 148px;
+  height: 110px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-skeleton);
+  cursor: zoom-in;
+  scroll-snap-align: start;
+  transition: transform 0.15s var(--ease-out-quart);
+}
+
+.place-photo-thumb:hover { transform: scale(1.03); }
+
+.place-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Menu pages — portrait scans, so a grid rather than a strip */
+.place-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: var(--space-3);
+}
+
+.place-menu-thumb {
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-skeleton);
+  cursor: zoom-in;
+  transition: transform 0.15s var(--ease-out-quart), border-color 0.15s ease;
+}
+
+.place-menu-thumb:hover {
+  transform: scale(1.04);
+  border-color: var(--bg-btn-add);
+}
+
+.place-menu-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── Add-place preview ─── */
+
+.place-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding: 10px;
+  border: 1px solid var(--border-input);
+  border-radius: 12px;
+  background: var(--bg-skeleton);
+}
+
+.place-preview-img {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.place-preview-body { min-width: 0; }
+
+.place-preview-title {
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.place-preview-meta,
+.place-preview-counts {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.place-preview-counts { color: var(--text-muted); }
+
+.modal-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* ─── Lightbox gallery paging (menus & photo strips) ─── */
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  z-index: 1;
+  transition: background 0.15s ease, transform 0.15s;
+}
+
+.lightbox-nav:hover { background: rgba(255, 255, 255, 0.22); }
+
+.lightbox-nav--prev { left: 16px; }
+.lightbox-nav--next { right: 16px; }
+
+.lightbox-nav--prev:hover { transform: translateY(-50%) scale(1.08); }
+.lightbox-nav--next:hover { transform: translateY(-50%) scale(1.08); }
+
+.lightbox-counter {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .lightbox-nav { width: 38px; height: 38px; }
+  .lightbox-nav--prev { left: 8px; }
+  .lightbox-nav--next { right: 8px; }
+  .place-photo-strip { margin: 0 -24px; }
+}

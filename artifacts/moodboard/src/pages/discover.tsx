@@ -5,32 +5,10 @@ import { DiscoverCard } from "@/components/DiscoverCard";
 import { AddDiscoverModal } from "@/components/AddDiscoverModal";
 import { EditDiscoverItemModal } from "@/components/EditDiscoverItemModal";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
+import { useColumnCount, sortItems, toColumns } from "@/lib/gridUtils";
 
 type TypeFilter = "all" | "movie" | "reel" | "link";
 type StatusFilter = "all" | "want" | "done";
-
-function useColumnCount(): number {
-  const [cols, setCols] = useState(() => {
-    const w = typeof window !== "undefined" ? window.innerWidth : 1200;
-    return w < 640 ? 2 : w < 1024 ? 3 : 4;
-  });
-  useEffect(() => {
-    const update = () => {
-      const w = window.innerWidth;
-      setCols(w < 640 ? 2 : w < 1024 ? 3 : 4);
-    };
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return cols;
-}
-
-function sortItems(items: MoodboardItem[]): MoodboardItem[] {
-  return [...items].sort((a, b) => {
-    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-    return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
-  });
-}
 
 interface DiscoverProps {
   spotlightOpen: boolean;
@@ -167,8 +145,7 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
   });
 
   const numCols = useColumnCount();
-  const columns: MoodboardItem[][] = Array.from({ length: numCols }, () => []);
-  displayed.forEach((item, i) => columns[i % numCols].push(item));
+  const columns = toColumns(displayed, numCols);
 
   const chipClass = (active: boolean) => `filter-chip${active ? " active" : ""}`;
 

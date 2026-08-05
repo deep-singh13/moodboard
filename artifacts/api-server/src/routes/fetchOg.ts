@@ -16,7 +16,7 @@ export const BROWSER_UA =
 const MAX_DIMENSION = 800;
 const WEBP_QUALITY = 82;
 
-async function compressToWebPDataUrl(imageUrl: string): Promise<string | null> {
+export async function compressToWebPDataUrl(imageUrl: string): Promise<string | null> {
   try {
     const res = await fetch(imageUrl, {
       headers: { "User-Agent": BROWSER_UA },

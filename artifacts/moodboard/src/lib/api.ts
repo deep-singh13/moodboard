@@ -1,4 +1,9 @@
-import type { MoodboardItem, MovieResult } from "@/types";
+import type {
+  MoodboardItem,
+  MovieResult,
+  PlaceDetail,
+  PlaceSearchResult,
+} from "@/types";
 
 const BASE = "/api";
 
@@ -114,6 +119,28 @@ export async function fetchMovieSearch(q: string): Promise<MovieResult[]> {
     return res.json();
   } catch {
     return [];
+  }
+}
+
+export async function fetchPlaceSearch(q: string): Promise<PlaceSearchResult[]> {
+  try {
+    const res = await fetch(`${BASE}/place-search?q=${encodeURIComponent(q)}`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchPlaceDetail(url: string): Promise<PlaceDetail | null> {
+  try {
+    const res = await fetch(`${BASE}/place-detail?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.name) return null;
+    return data as PlaceDetail;
+  } catch {
+    return null;
   }
 }
 

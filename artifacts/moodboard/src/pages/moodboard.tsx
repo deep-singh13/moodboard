@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import Discover from "@/pages/discover";
 import Quotes from "@/pages/quotes";
+import Places from "@/pages/places";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
 
 const GRID_GAP = 20;
@@ -130,7 +131,9 @@ export default function Moodboard() {
   const [addError, setAddError] = useState<string | null>(null);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [surpriseId, setSurpriseId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"board" | "discover" | "quotes">("board");
+  const [activeTab, setActiveTab] = useState<
+    "board" | "discover" | "quotes" | "places"
+  >("board");
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -493,6 +496,12 @@ export default function Moodboard() {
           >
             Quotes
           </button>
+          <button
+            className={`tab-btn ${activeTab === "places" ? "active" : ""}`}
+            onClick={() => setActiveTab("places")}
+          >
+            Places
+          </button>
         </div>
 
         {/* Board-only controls */}
@@ -629,6 +638,14 @@ export default function Moodboard() {
       {/* Quotes page — manages its own FAB and modal */}
       {activeTab === "quotes" && (
         <Quotes
+          spotlightOpen={spotlightOpen}
+          onSpotlightClose={() => setSpotlightOpen(false)}
+        />
+      )}
+
+      {/* Places page — manages its own FAB and modals */}
+      {activeTab === "places" && (
+        <Places
           spotlightOpen={spotlightOpen}
           onSpotlightClose={() => setSpotlightOpen(false)}
         />
