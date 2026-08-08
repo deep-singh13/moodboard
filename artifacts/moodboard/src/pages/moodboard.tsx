@@ -16,6 +16,16 @@ import Discover from "@/pages/discover";
 import Quotes from "@/pages/quotes";
 import Places from "@/pages/places";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
+import { MorphicTabs, type MorphicTabItem } from "@/components/MorphicTabs";
+
+type TabId = "board" | "discover" | "quotes" | "places";
+
+const TABS: ReadonlyArray<MorphicTabItem<TabId>> = [
+  { id: "board", label: "Board" },
+  { id: "discover", label: "Discover" },
+  { id: "quotes", label: "Quotes" },
+  { id: "places", label: "Places" },
+];
 
 const GRID_GAP = 20;
 const COLS_SIZES = [220, 320, 420];
@@ -131,9 +141,7 @@ export default function Moodboard() {
   const [addError, setAddError] = useState<string | null>(null);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [surpriseId, setSurpriseId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "board" | "discover" | "quotes" | "places"
-  >("board");
+  const [activeTab, setActiveTab] = useState<TabId>("board");
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -477,32 +485,12 @@ export default function Moodboard() {
         <div className="topbar-divider" aria-hidden="true" />
 
         {/* Tab switcher */}
-        <div className="tab-switcher">
-          <button
-            className={`tab-btn ${activeTab === "board" ? "active" : ""}`}
-            onClick={() => setActiveTab("board")}
-          >
-            Board
-          </button>
-          <button
-            className={`tab-btn ${activeTab === "discover" ? "active" : ""}`}
-            onClick={() => setActiveTab("discover")}
-          >
-            Discover
-          </button>
-          <button
-            className={`tab-btn ${activeTab === "quotes" ? "active" : ""}`}
-            onClick={() => setActiveTab("quotes")}
-          >
-            Quotes
-          </button>
-          <button
-            className={`tab-btn ${activeTab === "places" ? "active" : ""}`}
-            onClick={() => setActiveTab("places")}
-          >
-            Places
-          </button>
-        </div>
+        <MorphicTabs<TabId>
+          items={TABS}
+          activeId={activeTab}
+          onSelect={setActiveTab}
+          label="Sections"
+        />
 
         {/* Board-only controls */}
         {activeTab === "board" && (

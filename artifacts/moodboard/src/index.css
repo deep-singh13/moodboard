@@ -74,6 +74,10 @@
   --reset-btn-border: rgba(0, 0, 0, 0.09);
   --reset-btn-text: #5A5856;
 
+  /* Morphic tabs — the continuous track the active pill detaches from. Needs a
+     clear step away from --reset-btn-bg or the track vanishes into its frame. */
+  --tab-track-bg: oklch(0.915 0.006 70);
+
   /* Shadows */
   --card-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
   --card-shadow-hover: 0 6px 24px rgba(0,0,0,0.11), 0 2px 8px rgba(0,0,0,0.06);
@@ -132,6 +136,8 @@
   --reset-btn-bg: rgba(22, 22, 20, 0.92);
   --reset-btn-border: rgba(255, 255, 255, 0.07);
   --reset-btn-text: #7A7A78;
+
+  --tab-track-bg: oklch(0.28 0.006 70);
 
   /* Shadows */
   --card-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 2px 10px rgba(0,0,0,0.2);
@@ -1395,35 +1401,75 @@ body {
    TAB SWITCHER
    ============================================================ */
 
-.tab-switcher {
+/* ─── Morphic tabs ───────────────────────────────────────────────
+   Adapted from KokonutUI's Morphic Navbar. The items form one continuous
+   track; the active item takes a horizontal margin and full rounding so it
+   reads as a pill that has detached, and its neighbours round the edge they
+   present to the gap. Reduced motion is already handled globally above, so
+   these transitions get clamped there rather than disabled here. */
+
+.morphic-tabs {
   display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 100px;
   background: var(--reset-btn-bg);
   border: 1px solid var(--reset-btn-border);
-  border-radius: 100px;
-  padding: 3px;
-  gap: 2px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: var(--card-shadow);
-  flex-shrink: 0;
 }
 
-.tab-btn {
-  padding: 5px 14px;
-  border-radius: 100px;
+.morphic-tab {
+  appearance: none;
   border: none;
+  cursor: pointer;
+  padding: 5px 14px;
   font-family: 'DM Sans', sans-serif;
   font-size: 12px;
+  /* Held constant across states on purpose: the active pill already carries
+     the signal, and switching weight would reflow the label on every tab
+     change on top of the margin animation. */
   font-weight: 500;
-  cursor: pointer;
-  transition: background 0.18s, color 0.18s;
-  background: transparent;
+  line-height: 1.45;
+  white-space: nowrap;
   color: var(--reset-btn-text);
+  background: var(--tab-track-bg);
+  border-radius: 0;
+  margin: 0;
+  transition:
+    margin 0.28s var(--ease-out-quart),
+    border-radius 0.28s var(--ease-out-quart),
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.tab-btn.active {
+.morphic-tab.round-left {
+  border-top-left-radius: 100px;
+  border-bottom-left-radius: 100px;
+}
+
+.morphic-tab.round-right {
+  border-top-right-radius: 100px;
+  border-bottom-right-radius: 100px;
+}
+
+.morphic-tab.is-active {
+  margin: 0 3px;
+  border-radius: 100px;
   background: var(--bg-btn-add);
   color: #111110;
+}
+
+.morphic-tab:not(.is-active):hover {
+  color: var(--text-primary);
+}
+
+.morphic-tab:focus-visible {
+  outline: 2px solid var(--bg-btn-add);
+  outline-offset: 2px;
+  border-radius: 100px;
 }
 
 /* ============================================================
