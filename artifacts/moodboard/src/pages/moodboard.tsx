@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { AddItemModal } from "@/components/AddItemModal";
 import { MoodboardCard } from "@/components/MoodboardCard";
 import { Lightbox } from "@/components/Lightbox";
@@ -17,6 +17,7 @@ import Quotes from "@/pages/quotes";
 import Places from "@/pages/places";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
 import { MorphicTabs, type MorphicTabItem } from "@/components/MorphicTabs";
+import { LightRays } from "@/components/LightRays";
 
 type TabId = "board" | "discover" | "quotes" | "places";
 
@@ -145,6 +146,7 @@ export default function Moodboard() {
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const topbarRef = useRef<HTMLDivElement>(null);
   const surpriseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const panX = useRef(0);
@@ -156,6 +158,38 @@ export default function Moodboard() {
   const animFrameRef = useRef<number | null>(null);
   const lastTouches = useRef<TouchList | null>(null);
   const lastPinchDist = useRef<number | null>(null);
+
+  // The topbar is fixed and floats over the pages, so the pages have to pad
+  // themselves clear of it. Its height isn't a constant: below 640px it wraps,
+  // and how many rows it takes depends on both the viewport width and which
+  // tab is active (Board carries extra controls). Publishing the measured
+  // bottom edge lets the CSS pad by exactly the right amount instead of
+  // hardcoding a number that is wrong at most widths.
+  useLayoutEffect(() => {
+    const el = topbarRef.current;
+    if (!el) return;
+
+    const publish = () => {
+      const { bottom } = el.getBoundingClientRect();
+      document.documentElement.style.setProperty(
+        "--topbar-bottom",
+        `${Math.round(bottom)}px`,
+      );
+    };
+
+    publish();
+    // Catches wrapping and per-tab content changes; the resize listener covers
+    // the `top` offset, which shifts at the 640px breakpoint without the
+    // element's own size necessarily changing.
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    window.addEventListener("resize", publish);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", publish);
+    };
+  }, []);
 
   const applyTransform = useCallback(() => {
     if (canvasRef.current) {
@@ -480,7 +514,12 @@ export default function Moodboard() {
 
   return (
     <div className="moodboard-root" data-theme={theme}>
-      <div className="moodboard-topbar">
+      {/* Ambient background for every tab — mounted once here rather than per
+          page, so the rays keep their phase when you switch tabs instead of
+          restarting the animation each time. */}
+      <LightRays />
+
+      <div className="moodboard-topbar" ref={topbarRef}>
         <span className="topbar-wordmark">moodboard</span>
         <div className="topbar-divider" aria-hidden="true" />
 
@@ -556,7 +595,10 @@ export default function Moodboard() {
       </div>
 
       {/* Board canvas — stays mounted to preserve pan/zoom state */}
-      <div style={{ display: activeTab === "board" ? undefined : "none", height: "100%" }}>
+      <div
+        className="board-layer"
+        style={{ display: activeTab === "board" ? undefined : "none" }}
+      >
         <div ref={wrapperRef} className="moodboard-wrapper">
           <div ref={canvasRef} className="moodboard-canvas">
             {loading ? (
