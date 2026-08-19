@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import type { MoodboardItem } from "@/types";
+import { decodeQuoteMeta, encodeQuoteMeta, DEFAULT_QUOTE_COLOR } from "@/lib/itemMeta";
 
 const QUOTE_COLORS = [
   "bleached-apricot",
@@ -14,6 +15,10 @@ const QUOTE_COLORS = [
   "honey",
 ] as const;
 type QuoteColor = typeof QUOTE_COLORS[number];
+
+function isQuoteColor(value: string): value is QuoteColor {
+  return (QUOTE_COLORS as readonly string[]).includes(value);
+}
 
 const QUOTE_COLOR_LABELS: Record<QuoteColor, string> = {
   "bleached-apricot": "Bleached Apricot",
@@ -35,14 +40,16 @@ interface EditQuoteModalProps {
 }
 
 export function EditQuoteModal({ item, onClose, onSave }: EditQuoteModalProps) {
-  const initialMeta = (() => {
-    try { return item.meta ? JSON.parse(item.meta) : {}; }
-    catch { return {}; }
-  })();
+  // A stored colour that isn't in the palette any more falls back rather than
+  // being cast into the union and rendered as a missing CSS class.
+  const storedColor = decodeQuoteMeta(item).color;
+  const initialColor: QuoteColor = isQuoteColor(storedColor)
+    ? storedColor
+    : (DEFAULT_QUOTE_COLOR as QuoteColor);
 
   const [text, setText] = useState(item.title ?? "");
   const [author, setAuthor] = useState(item.subtitle ?? "");
-  const [color, setColor] = useState<QuoteColor>((initialMeta.color as QuoteColor) ?? "bleached-apricot");
+  const [color, setColor] = useState<QuoteColor>(initialColor);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -51,7 +58,9 @@ export function EditQuoteModal({ item, onClose, onSave }: EditQuoteModalProps) {
     onSave({
       title: text.trim(),
       subtitle: author.trim() || null,
-      meta: JSON.stringify({ color }),
+      // Merged into the stored meta, not written over it: editing the colour
+      // must not drop other keys this modal doesn't know about.
+      meta: encodeQuoteMeta({ color }, item.meta),
     });
     onClose();
   };

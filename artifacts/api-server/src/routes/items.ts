@@ -73,11 +73,30 @@ router.get("/items", async (req, res) => {
   }
 });
 
+/** `meta` is stored as an opaque JSON string, so nothing downstream can tell a
+ *  malformed payload from an absent one — every client reader just falls back
+ *  to {}. Rejecting non-JSON here keeps the column honest. */
+function isStorableMeta(meta: unknown): boolean {
+  if (meta === null || meta === undefined) return true;
+  if (typeof meta !== "string") return false;
+  try {
+    const parsed: unknown = JSON.parse(meta);
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}
+
 router.post("/items", async (req, res) => {
   const body = req.body as Record<string, string | null | undefined>;
   const { id, type, url, title, subtitle, imageUrl, size, addedAt, board, meta } =
     body;
   const note = (body.note as string | null | undefined) ?? null;
+
+  if (!isStorableMeta(meta)) {
+    res.status(400).json({ error: "meta must be a JSON object string" });
+    return;
+  }
 
   // Photos and reel thumbnails both arrive as base64 data URLs — store in image_data
   const isDataUrl = (imageUrl ?? "").startsWith("data:");
@@ -131,6 +150,12 @@ router.patch("/items/:id", async (req, res) => {
     subtitle?: string | null;
     meta?: string | null;
   };
+
+  if (!isStorableMeta(body.meta)) {
+    res.status(400).json({ error: "meta must be a JSON object string" });
+    return;
+  }
+
   try {
     if (body.completed !== undefined) {
       await pool.query("UPDATE items SET completed = $1 WHERE id = $2", [

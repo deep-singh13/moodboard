@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { MoodboardItem } from "@/types";
+import { encodeQuoteMeta } from "@/lib/itemMeta";
 
 const QUOTE_COLORS = [
   "bleached-apricot",
@@ -51,7 +52,7 @@ export function AddQuoteModal({ onClose, onAdd }: AddQuoteModalProps) {
       url: "quote://local",
       title: text.trim(),
       subtitle: author.trim() || undefined,
-      meta: JSON.stringify({ color }),
+      meta: encodeQuoteMeta({ color }),
       board: "quotes",
       addedAt: new Date().toISOString(),
     };

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { MoodboardItem, MovieResult } from "@/types";
 import { fetchMovieSearch, fetchMovieDetail, fetchOgMeta } from "@/lib/api";
 import { compressImage } from "@/lib/imageUtils";
+import { encodeMovieMeta, encodeReelMeta } from "@/lib/itemMeta";
 
 interface AddDiscoverModalProps {
   onClose: () => void;
@@ -96,7 +97,7 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
 
       if (tab === "movie") {
         if (!selectedMovie) return;
-        const meta = JSON.stringify({
+        const meta = encodeMovieMeta({
           year: selectedMovie.year ?? "",
           genre: selectedMovie.genre ?? "",
           rating: selectedMovie.rating ?? "",
@@ -134,7 +135,7 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
           title: username,
           subtitle: "Instagram",
           imageUrl: autoThumb,
-          meta: JSON.stringify({ username, reel_url: url }),
+          meta: encodeReelMeta({ username, reel_url: url }),
           size: 320,
           addedAt: new Date().toISOString(),
         };

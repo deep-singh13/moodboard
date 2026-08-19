@@ -8,6 +8,7 @@ import type {
 import { fetchPlaceSearch, fetchPlaceDetail } from "@/lib/api";
 import { buildMapsUrl } from "@/lib/gridUtils";
 import { compressImage } from "@/lib/imageUtils";
+import { encodePlaceMeta } from "@/lib/itemMeta";
 
 interface AddPlaceModalProps {
   onClose: () => void;
@@ -46,7 +47,7 @@ function detailToItem(detail: PlaceDetail): MoodboardItem {
       .filter(Boolean)
       .join(" · "),
     imageUrl: detail.coverImage,
-    meta: JSON.stringify(meta),
+    meta: encodePlaceMeta(meta),
     size: 320,
     addedAt: new Date().toISOString(),
   };
@@ -177,7 +178,7 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
             .filter(Boolean)
             .join(" · "),
           imageUrl: manualPhoto ?? undefined,
-          meta: JSON.stringify(meta),
+          meta: encodePlaceMeta(meta),
           size: 320,
           addedAt: new Date().toISOString(),
         });

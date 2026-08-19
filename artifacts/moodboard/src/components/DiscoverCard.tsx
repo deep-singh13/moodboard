@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { MoodboardItem } from "@/types";
+import { decodeMovieMeta } from "@/lib/itemMeta";
 
 interface DiscoverCardProps {
   item: MoodboardItem;
@@ -115,11 +116,7 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, on
   const pinned = !!item.pinned;
   const hasNote = !!(item.note?.trim());
 
-  // Parse meta JSON safely
-  const meta: Record<string, string> = (() => {
-    try { return item.meta ? JSON.parse(item.meta) : {}; }
-    catch { return {}; }
-  })();
+  const { imdbId } = decodeMovieMeta(item);
 
   useEffect(() => {
     if (isEditingNote && textareaRef.current) {
@@ -132,8 +129,8 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, on
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isEditingNote || completed) return;
-    if (item.type === "movie" && meta.imdbId) {
-      window.open(`https://www.imdb.com/title/${meta.imdbId}`, "_blank", "noopener noreferrer");
+    if (item.type === "movie" && imdbId) {
+      window.open(`https://www.imdb.com/title/${imdbId}`, "_blank", "noopener noreferrer");
     } else {
       window.open(item.url, "_blank", "noopener noreferrer");
     }

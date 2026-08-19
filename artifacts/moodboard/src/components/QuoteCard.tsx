@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { MoodboardItem } from "@/types";
+import { decodeQuoteMeta } from "@/lib/itemMeta";
 import { QuoteReadMoreModal } from "./QuoteReadMoreModal";
 
 interface QuoteCardProps {
@@ -30,12 +31,7 @@ function PinIcon() {
 }
 
 export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }: QuoteCardProps) {
-  const meta: Record<string, string> = (() => {
-    try { return item.meta ? JSON.parse(item.meta) : {}; }
-    catch { return {}; }
-  })();
-
-  const color = meta.color ?? "bleached-apricot";
+  const { color } = decodeQuoteMeta(item);
   const pinned = !!item.pinned;
 
   const [isOverflowing, setIsOverflowing] = useState(false);

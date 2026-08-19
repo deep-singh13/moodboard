@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import type { MoodboardItem, PlaceMeta } from "@/types";
+import type { MoodboardItem } from "@/types";
 import { buildMapsUrl } from "@/lib/gridUtils";
+import { decodePlaceMeta } from "@/lib/itemMeta";
 
 interface PlaceCardProps {
   item: MoodboardItem;
@@ -65,10 +66,7 @@ export function PlaceCard({
   const pinned = !!item.pinned;
   const hasNote = !!item.note?.trim();
 
-  const meta: PlaceMeta = (() => {
-    try { return item.meta ? (JSON.parse(item.meta) as PlaceMeta) : {}; }
-    catch { return {}; }
-  })();
+  const meta = decodePlaceMeta(item);
 
   const mapsUrl = meta.mapsUrl ?? buildMapsUrl(meta, item.title);
 

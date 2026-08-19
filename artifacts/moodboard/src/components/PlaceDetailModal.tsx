@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import type { MoodboardItem, PlaceMeta } from "@/types";
+import type { MoodboardItem } from "@/types";
 import { buildMapsUrl } from "@/lib/gridUtils";
+import { decodePlaceMeta } from "@/lib/itemMeta";
 import { Lightbox } from "@/components/Lightbox";
 
 interface PlaceDetailModalProps {
@@ -32,14 +33,9 @@ export function PlaceDetailModal({ item, onClose }: PlaceDetailModalProps) {
     null,
   );
 
-  const meta: PlaceMeta = (() => {
-    try { return item.meta ? (JSON.parse(item.meta) as PlaceMeta) : {}; }
-    catch { return {}; }
-  })();
+  const meta = decodePlaceMeta(item);
 
-  const photos = meta.photos ?? [];
-  const menuImages = meta.menuImages ?? [];
-  const cuisines = meta.cuisines ?? [];
+  const { photos, menuImages, cuisines } = meta;
   const mapsUrl = meta.mapsUrl ?? buildMapsUrl(meta, item.title);
   const addressLine = [meta.address, meta.locality]
     .filter(Boolean)
