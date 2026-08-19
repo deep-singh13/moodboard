@@ -4,14 +4,8 @@ import { MoodboardCard } from "@/components/MoodboardCard";
 import { Lightbox } from "@/components/Lightbox";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { MoodboardItem } from "@/types";
-import {
-  fetchItems,
-  createItem,
-  deleteItem,
-  patchItemComplete,
-  patchItemNote,
-  refreshAllPrices,
-} from "@/lib/api";
+import { refreshAllPrices } from "@/lib/api";
+import { useBoard } from "@/lib/useBoard";
 import Discover from "@/pages/discover";
 import Quotes from "@/pages/quotes";
 import Places from "@/pages/places";
@@ -130,16 +124,25 @@ function loadTheme(): "light" | "dark" {
 }
 
 export default function Moodboard() {
-  const [items, setItems] = useState<MoodboardItem[]>([]);
+  // The board packs its cards spatially, so a new item appends rather than
+  // prepending — prepending would reshuffle every existing card's position.
+  const {
+    items,
+    loading,
+    loadError,
+    addError,
+    add,
+    remove,
+    toggleComplete,
+    updateNote,
+  } = useBoard({ board: "moodboard", insert: "append" });
+
   const [layoutItems, setLayoutItems] = useState<MoodboardItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [showHint, setShowHint] = useState(false);
   const [hintFading, setHintFading] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [surpriseId, setSurpriseId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("board");
@@ -265,16 +268,6 @@ export default function Moodboard() {
       setTimeout(() => setHintFading(true), 2500);
       setTimeout(() => setShowHint(false), 3000);
     }
-
-    fetchItems()
-      .then((loaded) => {
-        setItems(loaded);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoadError(true);
-        setLoading(false);
-      });
   }, []);
 
   // Product prices/availability go stale while the app is closed (and this
@@ -305,40 +298,15 @@ export default function Moodboard() {
     });
   }, []);
 
-  const addItem = useCallback((item: MoodboardItem) => {
-    const withSize = { ...item, size: pickSize() };
-    setItems((prev) => [...prev, withSize]);
-    createItem(withSize).catch(() => {
-      setItems((prev) => prev.filter((i) => i.id !== withSize.id));
-      setAddError("Couldn't save that item — check your connection and try again.");
-      setTimeout(() => setAddError(null), 4000);
-    });
-  }, []);
-
-  const removeItem = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    deleteItem(id).catch(() => {});
-  }, []);
-
-  const toggleComplete = useCallback((id: string) => {
-    setItems((prev) => {
-      const next = prev.map((i) =>
-        i.id === id ? { ...i, completed: !i.completed } : i,
-      );
-      const updated = next.find((i) => i.id === id);
-      if (updated) {
-        patchItemComplete(id, updated.completed ?? false).catch(() => {});
-      }
-      return next;
-    });
-  }, []);
-
-  const updateNote = useCallback((id: string, note: string | null) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, note: note ?? undefined } : i)),
-    );
-    patchItemNote(id, note).catch(() => {});
-  }, []);
+  // Card size is drawn here rather than in the board module: it only means
+  // anything to the spatial packer, and it has to be stamped before the
+  // optimistic insert so the card doesn't resize once the save lands.
+  const addItem = useCallback(
+    (item: MoodboardItem) => {
+      add({ ...item, size: pickSize() });
+    },
+    [add],
+  );
 
   const handleSurpriseMe = useCallback(() => {
     const pool = layoutItems.filter((item) => !item.completed);
@@ -627,7 +595,7 @@ export default function Moodboard() {
                 <MoodboardCard
                   key={item.id}
                   item={item}
-                  onRemove={removeItem}
+                  onRemove={remove}
                   onToggleComplete={toggleComplete}
                   onPhotoClick={setLightboxSrc}
                   isHighlighted={item.id === surpriseId}

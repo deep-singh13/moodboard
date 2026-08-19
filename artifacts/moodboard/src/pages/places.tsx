@@ -1,14 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { MoodboardItem } from "@/types";
-import {
-  fetchItems,
-  createItem,
-  deleteItem,
-  patchItemComplete,
-  patchItemPinned,
-  patchItemNote,
-} from "@/lib/api";
-import { useColumnCount, sortItems, toColumns } from "@/lib/gridUtils";
+import { useColumnCount, toColumns } from "@/lib/gridUtils";
+import { useBoard } from "@/lib/useBoard";
+import { useHighlight } from "@/lib/useHighlight";
 import { PlaceCard } from "@/components/PlaceCard";
 import { AddPlaceModal } from "@/components/AddPlaceModal";
 import { PlaceDetailModal } from "@/components/PlaceDetailModal";
@@ -22,81 +16,39 @@ interface PlacesProps {
 }
 
 export default function Places({ spotlightOpen, onSpotlightClose }: PlacesProps) {
-  const [items, setItems] = useState<MoodboardItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const {
+    items,
+    loading,
+    loadError,
+    addError,
+    add,
+    remove,
+    toggleComplete,
+    togglePin,
+    updateNote,
+  } = useBoard({ board: "places" });
+  const { highlightId, highlight } = useHighlight(".places-page");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [addError, setAddError] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<MoodboardItem | null>(null);
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    fetchItems("places")
-      .then((loaded) => { setItems(loaded); setLoading(false); })
-      .catch(() => { setLoadError(true); setLoading(false); });
-  }, []);
+  // Deleting the place the detail modal is showing has to close it too.
+  const removeItem = useCallback(
+    (id: string) => {
+      setDetailItem((current) => (current?.id === id ? null : current));
+      remove(id);
+    },
+    [remove],
+  );
 
-  useEffect(() => () => {
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-  }, []);
-
-  const addItem = useCallback((item: MoodboardItem) => {
-    setItems((prev) => sortItems([item, ...prev]));
-    createItem(item).catch(() => {
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      setAddError("Couldn't save — check your connection.");
-      setTimeout(() => setAddError(null), 4000);
-    });
-  }, []);
-
-  const removeItem = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    setDetailItem((current) => (current?.id === id ? null : current));
-    deleteItem(id).catch(() => {});
-  }, []);
-
-  const toggleComplete = useCallback((id: string) => {
-    setItems((prev) => {
-      const next = prev.map((i) =>
-        i.id === id ? { ...i, completed: !i.completed } : i,
-      );
-      const updated = next.find((i) => i.id === id);
-      if (updated) patchItemComplete(id, updated.completed ?? false).catch(() => {});
-      return next;
-    });
-  }, []);
-
-  const togglePin = useCallback((id: string) => {
-    setItems((prev) => {
-      const next = sortItems(
-        prev.map((i) => (i.id === id ? { ...i, pinned: !i.pinned } : i)),
-      );
-      const updated = next.find((i) => i.id === id);
-      if (updated) patchItemPinned(id, updated.pinned ?? false).catch(() => {});
-      return next;
-    });
-  }, []);
-
-  const updateNote = useCallback((id: string, note: string | null) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, note: note ?? undefined } : i)),
-    );
-    patchItemNote(id, note).catch(() => {});
-  }, []);
-
-  const selectItem = useCallback((item: MoodboardItem) => {
-    onSpotlightClose();
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-    setHighlightId(item.id);
-    requestAnimationFrame(() => {
-      document
-        .querySelector(`.places-page [data-item-id="${item.id}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    highlightTimer.current = setTimeout(() => setHighlightId(null), 1800);
-  }, [onSpotlightClose]);
+  const selectItem = useCallback(
+    (item: MoodboardItem) => {
+      onSpotlightClose();
+      highlight(item.id);
+    },
+    [onSpotlightClose, highlight],
+  );
 
   const displayed = items.filter((item) => {
     if (statusFilter === "want" && item.completed) return false;
@@ -206,7 +158,7 @@ export default function Places({ spotlightOpen, onSpotlightClose }: PlacesProps)
       </button>
 
       {isModalOpen && (
-        <AddPlaceModal onClose={() => setIsModalOpen(false)} onAdd={addItem} />
+        <AddPlaceModal onClose={() => setIsModalOpen(false)} onAdd={add} />
       )}
 
       {detailItem && (

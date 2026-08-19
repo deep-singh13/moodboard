@@ -28,42 +28,8 @@ export async function deleteItem(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Failed to delete item: ${res.status}`);
 }
 
-export async function patchItemComplete(
-  id: string,
-  completed: boolean,
-): Promise<void> {
-  const res = await fetch(`${BASE}/items/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ completed }),
-  });
-  if (!res.ok) throw new Error(`Failed to update item: ${res.status}`);
-}
-
-export async function patchItemPinned(
-  id: string,
-  pinned: boolean,
-): Promise<void> {
-  const res = await fetch(`${BASE}/items/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pinned }),
-  });
-  if (!res.ok) throw new Error(`Failed to update item: ${res.status}`);
-}
-
-export async function patchItemNote(
-  id: string,
-  note: string | null,
-): Promise<void> {
-  const res = await fetch(`${BASE}/items/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ note }),
-  });
-  if (!res.ok) throw new Error(`Failed to update note: ${res.status}`);
-}
-
+/** Partial update of a saved item. Every field is optional; omit one to leave
+ *  it untouched. Sending an explicit null clears it. */
 export async function patchItemEdit(
   id: string,
   updates: {
@@ -71,6 +37,9 @@ export async function patchItemEdit(
     imageUrl?: string | null;
     subtitle?: string | null;
     meta?: string | null;
+    note?: string | null;
+    completed?: boolean;
+    pinned?: boolean;
   },
 ): Promise<void> {
   const res = await fetch(`${BASE}/items/${id}`, {

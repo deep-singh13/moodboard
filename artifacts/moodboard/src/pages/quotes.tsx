@@ -1,34 +1,12 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { MoodboardItem } from "@/types";
-import { fetchItems, createItem, deleteItem, patchItemEdit, patchItemPinned } from "@/lib/api";
 import { QuoteCard } from "@/components/QuoteCard";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
 import { AddQuoteModal } from "@/components/AddQuoteModal";
 import { EditQuoteModal } from "@/components/EditQuoteModal";
-
-function useColumnCount(): number {
-  const [cols, setCols] = useState(() => {
-    const w = typeof window !== "undefined" ? window.innerWidth : 1200;
-    return w < 640 ? 2 : w < 1024 ? 3 : 4;
-  });
-  useEffect(() => {
-    const update = () => {
-      const w = window.innerWidth;
-      setCols(w < 640 ? 2 : w < 1024 ? 3 : 4);
-    };
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return cols;
-}
-
-
-function sortItems(items: MoodboardItem[]): MoodboardItem[] {
-  return [...items].sort((a, b) => {
-    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-    return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
-  });
-}
+import { useColumnCount, toColumns } from "@/lib/gridUtils";
+import { useBoard } from "@/lib/useBoard";
+import { useHighlight } from "@/lib/useHighlight";
 
 interface QuotesProps {
   spotlightOpen: boolean;
@@ -36,89 +14,25 @@ interface QuotesProps {
 }
 
 export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps) {
-  const [items, setItems] = useState<MoodboardItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const { items, loading, loadError, addError, add, remove, togglePin, update } =
+    useBoard({ board: "quotes" });
+  const { highlightId, highlight } = useHighlight(".discover-page");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<MoodboardItem | null>(null);
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    fetchItems("quotes")
-      .then((loaded) => { setItems(loaded); setLoading(false); })
-      .catch(() => { setLoadError(true); setLoading(false); });
-  }, []);
-
-  const addItem = useCallback((item: MoodboardItem) => {
-    setItems((prev) => sortItems([item, ...prev]));
-    createItem(item).catch(() => {
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      setAddError("Couldn't save — check your connection.");
-      setTimeout(() => setAddError(null), 4000);
-    });
-  }, []);
-
-  const togglePin = useCallback((id: string) => {
-    setItems((prev) => {
-      const next = sortItems(
-        prev.map((i) => (i.id === id ? { ...i, pinned: !i.pinned } : i)),
-      );
-      const updated = next.find((i) => i.id === id);
-      if (updated) patchItemPinned(id, updated.pinned ?? false).catch(() => {});
-      return next;
-    });
-  }, []);
-
-  const removeItem = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    deleteItem(id).catch(() => {});
-  }, []);
-
-  const updateItem = useCallback(
-    (id: string, updates: { title: string; subtitle: string | null; meta: string }) => {
-      setItems((prev) =>
-        prev.map((i) => {
-          if (i.id !== id) return i;
-          return {
-            ...i,
-            title: updates.title,
-            subtitle: updates.subtitle ?? undefined,
-            meta: updates.meta,
-          };
-        }),
-      );
-      patchItemEdit(id, {
-        title: updates.title,
-        subtitle: updates.subtitle,
-        meta: updates.meta,
-      }).catch(() => {});
+  const selectItem = useCallback(
+    (item: MoodboardItem) => {
+      onSpotlightClose();
+      highlight(item.id);
     },
-    [],
+    [onSpotlightClose, highlight],
   );
-
-  const selectItem = useCallback((item: MoodboardItem) => {
-    onSpotlightClose();
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-    setHighlightId(item.id);
-    requestAnimationFrame(() => {
-      document
-        .querySelector(`.discover-page [data-item-id="${item.id}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    highlightTimer.current = setTimeout(() => setHighlightId(null), 1800);
-  }, [onSpotlightClose]);
-
-  useEffect(() => () => {
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-  }, []);
 
   const displayed = items;
 
   const numCols = useColumnCount();
-  const columns: MoodboardItem[][] = Array.from({ length: numCols }, () => []);
-  displayed.forEach((item, i) => columns[i % numCols].push(item));
+  const columns = toColumns(displayed, numCols);
 
   return (
     <div className="discover-page">
@@ -174,7 +88,7 @@ export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps)
                     key={item.id}
                     item={item}
                     isHighlighted={item.id === highlightId}
-                    onRemove={removeItem}
+                    onRemove={remove}
                     onTogglePin={togglePin}
                     onEdit={(id) => {
                       const found = items.find((i) => i.id === id);
@@ -196,7 +110,7 @@ export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps)
       </button>
 
       {isModalOpen && (
-        <AddQuoteModal onClose={() => setIsModalOpen(false)} onAdd={addItem} />
+        <AddQuoteModal onClose={() => setIsModalOpen(false)} onAdd={add} />
       )}
 
       {editItem && (
@@ -204,7 +118,7 @@ export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps)
           item={editItem}
           onClose={() => setEditItem(null)}
           onSave={(updates) => {
-            updateItem(editItem.id, updates);
+            update(editItem.id, updates);
             setEditItem(null);
           }}
         />

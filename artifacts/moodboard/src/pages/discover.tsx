@@ -1,11 +1,13 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { MoodboardItem } from "@/types";
-import { fetchItems, createItem, deleteItem, patchItemComplete, patchItemPinned, patchItemNote, patchItemEdit, refreshItemPrice } from "@/lib/api";
+import { refreshItemPrice } from "@/lib/api";
 import { DiscoverCard } from "@/components/DiscoverCard";
 import { AddDiscoverModal } from "@/components/AddDiscoverModal";
 import { EditDiscoverItemModal } from "@/components/EditDiscoverItemModal";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
-import { useColumnCount, sortItems, toColumns } from "@/lib/gridUtils";
+import { useColumnCount, toColumns } from "@/lib/gridUtils";
+import { useBoard } from "@/lib/useBoard";
+import { useHighlight } from "@/lib/useHighlight";
 
 type TypeFilter = "all" | "movie" | "reel" | "link";
 type StatusFilter = "all" | "want" | "done";
@@ -17,125 +19,66 @@ interface DiscoverProps {
 
 
 export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverProps) {
-  const [items, setItems] = useState<MoodboardItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const {
+    items,
+    loading,
+    loadError,
+    addError,
+    add,
+    remove,
+    toggleComplete,
+    togglePin,
+    updateNote,
+    update,
+    replace,
+  } = useBoard({ board: "discover" });
+  const { highlightId, highlight } = useHighlight(".discover-page");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [addError, setAddError] = useState<string | null>(null);
   const [thumbToast, setThumbToast] = useState(false);
   const [editItem, setEditItem] = useState<MoodboardItem | null>(null);
   const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    fetchItems("discover")
-      .then((loaded) => { setItems(loaded); setLoading(false); })
-      .catch(() => { setLoadError(true); setLoading(false); });
-  }, []);
-
-  const refreshPrice = useCallback((id: string) => {
-    setRefreshingIds((prev) => new Set(prev).add(id));
-    refreshItemPrice(id)
-      .then((updated) => {
-        setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
-      })
-      .catch(() => {})
-      .finally(() => {
-        setRefreshingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
+  const refreshPrice = useCallback(
+    (id: string) => {
+      setRefreshingIds((prev) => new Set(prev).add(id));
+      refreshItemPrice(id)
+        .then(replace)
+        .catch(() => {})
+        .finally(() => {
+          setRefreshingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
         });
-      });
-  }, []);
-
-  const addItem = useCallback((item: MoodboardItem) => {
-    setItems((prev) => sortItems([item, ...prev]));
-    // Show thumbnail toast for reels and links that came in without an image
-    if (!item.imageUrl && (item.type === "reel" || item.type === "link")) {
-      setThumbToast(true);
-      setTimeout(() => setThumbToast(false), 5000);
-    }
-    createItem(item)
-      .then(() => {
-        if (item.type === "link") refreshPrice(item.id);
-      })
-      .catch(() => {
-        setItems((prev) => prev.filter((i) => i.id !== item.id));
-        setAddError("Couldn't save — check your connection.");
-        setTimeout(() => setAddError(null), 4000);
-      });
-  }, [refreshPrice]);
-
-  const removeItem = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    deleteItem(id).catch(() => {});
-  }, []);
-
-  const toggleComplete = useCallback((id: string) => {
-    setItems((prev) => {
-      const next = prev.map((i) =>
-        i.id === id ? { ...i, completed: !i.completed } : i,
-      );
-      const updated = next.find((i) => i.id === id);
-      if (updated) patchItemComplete(id, updated.completed ?? false).catch(() => {});
-      return next;
-    });
-  }, []);
-
-  const togglePin = useCallback((id: string) => {
-    setItems((prev) => {
-      const next = sortItems(
-        prev.map((i) => (i.id === id ? { ...i, pinned: !i.pinned } : i)),
-      );
-      const updated = next.find((i) => i.id === id);
-      if (updated) patchItemPinned(id, updated.pinned ?? false).catch(() => {});
-      return next;
-    });
-  }, []);
-
-  const updateNote = useCallback((id: string, note: string | null) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, note: note ?? undefined } : i)),
-    );
-    patchItemNote(id, note).catch(() => {});
-  }, []);
-
-  const updateItem = useCallback(
-    (id: string, updates: { title?: string | null; imageUrl?: string | null }) => {
-      setItems((prev) =>
-        prev.map((i) => {
-          if (i.id !== id) return i;
-          return {
-            ...i,
-            ...(("title" in updates) && { title: updates.title ?? undefined }),
-            ...(("imageUrl" in updates) && { imageUrl: updates.imageUrl ?? undefined }),
-          };
-        }),
-      );
-      patchItemEdit(id, updates).catch(() => {});
     },
-    [],
+    [replace],
   );
 
-  const selectItem = useCallback((item: MoodboardItem) => {
-    onSpotlightClose();
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-    setHighlightId(item.id);
-    requestAnimationFrame(() => {
-      document
-        .querySelector(`.discover-page [data-item-id="${item.id}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    highlightTimer.current = setTimeout(() => setHighlightId(null), 1800);
-  }, [onSpotlightClose]);
+  const addItem = useCallback(
+    (item: MoodboardItem) => {
+      // Show thumbnail toast for reels and links that came in without an image
+      if (!item.imageUrl && (item.type === "reel" || item.type === "link")) {
+        setThumbToast(true);
+        setTimeout(() => setThumbToast(false), 5000);
+      }
+      add(item).then((saved) => {
+        if (saved && item.type === "link") refreshPrice(item.id);
+      });
+    },
+    [add, refreshPrice],
+  );
 
-  useEffect(() => () => {
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-  }, []);
+  const selectItem = useCallback(
+    (item: MoodboardItem) => {
+      onSpotlightClose();
+      highlight(item.id);
+    },
+    [onSpotlightClose, highlight],
+  );
 
   const displayed = items.filter((item) => {
     if (typeFilter !== "all" && item.type !== typeFilter) return false;
@@ -221,7 +164,7 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
                     key={item.id}
                     item={item}
                     isHighlighted={item.id === highlightId}
-                    onRemove={removeItem}
+                    onRemove={remove}
                     onToggleComplete={toggleComplete}
                     onTogglePin={togglePin}
                     onUpdateNote={updateNote}
@@ -256,7 +199,7 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
           item={editItem}
           onClose={() => setEditItem(null)}
           onSave={(updates) => {
-            updateItem(editItem.id, updates);
+            update(editItem.id, updates);
             setEditItem(null);
           }}
         />
