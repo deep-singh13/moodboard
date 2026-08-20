@@ -9,6 +9,10 @@ import { fetchPlaceSearch, fetchPlaceDetail } from "@/lib/api";
 import { buildMapsUrl } from "@/lib/gridUtils";
 import { compressImage } from "@/lib/imageUtils";
 import { encodePlaceMeta } from "@/lib/itemMeta";
+import { normalizeUrl } from "@/lib/urlUtils";
+import { ModalShell } from "@/components/ModalShell";
+import { ModalTypeTabs } from "@/components/ModalTypeTabs";
+import { UploadPhotoButton } from "@/components/UploadPhotoButton";
 
 interface AddPlaceModalProps {
   onClose: () => void;
@@ -16,6 +20,12 @@ interface AddPlaceModalProps {
 }
 
 type TabType = "search" | "link" | "manual";
+
+const TABS: Array<{ value: TabType; label: string }> = [
+  { value: "search", label: "🔍 By name" },
+  { value: "link", label: "🔗 District link" },
+  { value: "manual", label: "✎ Manual" },
+];
 
 /** Both District paths converge here, so a place saved by link and the same
  *  place saved by name produce an identical row. */
@@ -57,7 +67,6 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
   const [tab, setTab] = useState<TabType>("search");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const overlayRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Search tab
@@ -79,7 +88,6 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
   const [manualAddress, setManualAddress] = useState("");
   const [manualCuisine, setManualCuisine] = useState("");
   const [manualPhoto, setManualPhoto] = useState<string | null>(null);
-  const manualFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inputRef.current?.focus(); }, [tab]);
 
@@ -120,9 +128,9 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
   }, []);
 
   const handleLinkLookup = useCallback(async () => {
-    let url = linkUrl.trim();
-    if (!url) return;
-    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    const trimmed = linkUrl.trim();
+    if (!trimmed) return;
+    const url = normalizeUrl(trimmed);
 
     let host: string;
     try {
@@ -138,9 +146,7 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
     await loadDetail(url);
   }, [linkUrl, loadDetail]);
 
-  const handleManualPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleManualPhoto = async (file: File) => {
     try {
       setManualPhoto(await compressImage(file, 800, 0.82));
     } catch {
@@ -202,30 +208,16 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
     (tab === "manual" ? !!manualName.trim() : !!preview);
 
   return (
-    <div
-      className="modal-overlay"
-      ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-    >
-      <div className="modal-drawer">
-        <div className="modal-handle" />
-        <p className="modal-label">Add a place</p>
-
-        <div className="modal-type-tabs">
-          {(["search", "link", "manual"] as TabType[]).map((t) => (
-            <button
-              key={t}
-              className={`modal-type-tab ${tab === t ? "active" : ""}`}
-              onClick={() => {
-                setTab(t);
-                setError(null);
-                setPreview(null);
-              }}
-            >
-              {t === "search" ? "🔍 By name" : t === "link" ? "🔗 District link" : "✎ Manual"}
-            </button>
-          ))}
-        </div>
+    <ModalShell onClose={onClose} label="Add a place">
+        <ModalTypeTabs
+          tabs={TABS}
+          active={tab}
+          onChange={(t) => {
+            setTab(t);
+            setError(null);
+            setPreview(null);
+          }}
+        />
 
         {/* Search by name */}
         {tab === "search" && (
@@ -310,21 +302,10 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
               value={manualCuisine}
               onChange={(e) => setManualCuisine(e.target.value)}
             />
-            <button
-              className={`modal-upload-btn ${manualPhoto ? "has-file" : ""}`}
-              onClick={() => manualFileRef.current?.click()}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-              </svg>
-              {manualPhoto ? "Photo uploaded ✓" : "Upload a photo (optional)"}
-            </button>
-            <input
-              ref={manualFileRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={handleManualPhoto}
+            <UploadPhotoButton
+              hasFile={!!manualPhoto}
+              label={manualPhoto ? "Photo uploaded ✓" : "Upload a photo (optional)"}
+              onFileSelect={handleManualPhoto}
             />
           </>
         )}
@@ -364,7 +345,6 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
             {loading ? "Adding…" : "Add place"}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

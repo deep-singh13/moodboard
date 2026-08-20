@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { SkeletonCard } from "@/components/MoodboardCard";
+import { ModalShell } from "@/components/ModalShell";
 import type { MoodboardItem } from "@/types";
 import { fetchOgMeta } from "@/lib/api";
 import { compressImage } from "@/lib/imageUtils";
+import { getDomain, normalizeUrl } from "@/lib/urlUtils";
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -20,14 +22,6 @@ function extractYoutubeId(url: string): string | null {
     /(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/,
   );
   return m ? m[1] : null;
-}
-
-function getDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace("www.", "");
-  } catch {
-    return url;
-  }
 }
 
 async function fetchYoutubeMeta(
@@ -52,25 +46,17 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) onClose();
-  };
-
   const handleAdd = async () => {
     const trimmed = url.trim();
     if (!trimmed) return;
 
-    let normalizedUrl = trimmed;
-    if (!/^https?:\/\//i.test(normalizedUrl)) {
-      normalizedUrl = "https://" + normalizedUrl;
-    }
+    const normalizedUrl = normalizeUrl(trimmed);
 
     setLoading(true);
     setError(null);
@@ -148,11 +134,7 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
   };
 
   return (
-    <div className="modal-overlay" ref={overlayRef} onClick={handleOverlayClick}>
-      <div className="modal-drawer">
-        <div className="modal-handle" />
-        <p className="modal-label">Add to moodboard</p>
-
+    <ModalShell onClose={onClose} label="Add to moodboard">
         {loading ? (
           <div style={{ padding: "16px 0" }}>
             <SkeletonCard size={280} />
@@ -217,7 +199,6 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
           style={{ display: "none" }}
           onChange={handleFileUpload}
         />
-      </div>
-    </div>
+    </ModalShell>
   );
 }

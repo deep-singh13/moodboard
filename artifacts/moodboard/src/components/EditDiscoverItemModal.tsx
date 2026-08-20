@@ -1,6 +1,8 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import type { MoodboardItem } from "@/types";
 import { compressImage } from "@/lib/imageUtils";
+import { ModalShell } from "@/components/ModalShell";
+import { UploadPhotoButton } from "@/components/UploadPhotoButton";
 
 interface EditDiscoverItemModalProps {
   item: MoodboardItem;
@@ -13,14 +15,10 @@ export function EditDiscoverItemModal({ item, onClose, onSave }: EditDiscoverIte
   // undefined = no change; null = explicitly remove; string = new value
   const [newImageData, setNewImageData] = useState<string | null | undefined>(undefined);
   const [uploadLoading, setUploadLoading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   const previewUrl = newImageData !== undefined ? newImageData ?? undefined : item.imageUrl;
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileChange = async (file: File) => {
     setUploadLoading(true);
     try {
       const dataUrl = await compressImage(file, 1200, 0.82);
@@ -29,8 +27,6 @@ export function EditDiscoverItemModal({ item, onClose, onSave }: EditDiscoverIte
       // silently ignore — user can retry
     } finally {
       setUploadLoading(false);
-      // reset so the same file can be re-selected
-      e.target.value = "";
     }
   };
 
@@ -44,15 +40,7 @@ export function EditDiscoverItemModal({ item, onClose, onSave }: EditDiscoverIte
   };
 
   return (
-    <div
-      className="modal-overlay"
-      ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-    >
-      <div className="modal-drawer">
-        <div className="modal-handle" />
-        <p className="modal-label">Edit tile</p>
-
+    <ModalShell onClose={onClose} label="Edit tile">
         {/* Thumbnail preview */}
         {previewUrl && (
           <div className="edit-modal-thumb-wrap">
@@ -70,23 +58,11 @@ export function EditDiscoverItemModal({ item, onClose, onSave }: EditDiscoverIte
           autoFocus
         />
 
-        {/* Thumbnail upload */}
-        <button
-          className={`modal-upload-btn ${newImageData ? "has-file" : ""}`}
-          onClick={() => fileRef.current?.click()}
+        <UploadPhotoButton
+          hasFile={!!newImageData}
+          label={uploadLoading ? "Processing…" : newImageData ? "Thumbnail changed ✓" : "Change thumbnail"}
           disabled={uploadLoading}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-          </svg>
-          {uploadLoading ? "Processing…" : newImageData ? "Thumbnail changed ✓" : "Change thumbnail"}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={handleFileChange}
+          onFileSelect={handleFileChange}
         />
 
         <div className="modal-actions">
@@ -99,7 +75,6 @@ export function EditDiscoverItemModal({ item, onClose, onSave }: EditDiscoverIte
             Save
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

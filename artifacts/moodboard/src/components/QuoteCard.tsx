@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { MoodboardItem } from "@/types";
 import { decodeQuoteMeta } from "@/lib/itemMeta";
+import { EditIcon, PinIcon, RemoveIcon } from "@/components/icons";
 import { QuoteReadMoreModal } from "./QuoteReadMoreModal";
 
 interface QuoteCardProps {
@@ -10,24 +11,6 @@ interface QuoteCardProps {
   onEdit: (id: string) => void;
   onTogglePin: (id: string) => void;
   isHighlighted?: boolean;
-}
-
-function EditIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 17v5" />
-      <path d="M9 10.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.5l2 3.5H7l2-3.5z" />
-    </svg>
-  );
 }
 
 export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }: QuoteCardProps) {
@@ -100,9 +83,7 @@ export function QuoteCard({ item, onRemove, onEdit, onTogglePin, isHighlighted }
       </button>
 
       <button className="card-remove" onClick={handleRemove} aria-label="Remove quote">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
+        <RemoveIcon />
       </button>
 
       {showFull && createPortal(

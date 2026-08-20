@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import type { MoodboardItem } from "@/types";
 import { decodeMovieMeta } from "@/lib/itemMeta";
+import { CheckIcon, EditIcon, PinIcon, RemoveIcon } from "@/components/icons";
+import { CardNoteEditor } from "@/components/CardNoteEditor";
 
 interface DiscoverCardProps {
   item: MoodboardItem;
@@ -12,41 +14,6 @@ interface DiscoverCardProps {
   onRefreshPrice?: (id: string) => void;
   isRefreshingPrice?: boolean;
   isHighlighted?: boolean;
-}
-
-function CheckIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  );
-}
-
-function EditIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 17v5" />
-      <path d="M9 10.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.5l2 3.5H7l2-3.5z" />
-    </svg>
-  );
 }
 
 function RefreshIcon() {
@@ -109,22 +76,11 @@ function getTypeIcon(type: string): React.ReactNode {
 export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, onUpdateNote, onEdit, onRefreshPrice, isRefreshingPrice, isHighlighted }: DiscoverCardProps) {
   const [imgError, setImgError] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
-  const [draftNote, setDraftNote] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const completed = !!item.completed;
   const pinned = !!item.pinned;
-  const hasNote = !!(item.note?.trim());
 
   const { imdbId } = decodeMovieMeta(item);
-
-  useEffect(() => {
-    if (isEditingNote && textareaRef.current) {
-      textareaRef.current.focus();
-      const len = textareaRef.current.value.length;
-      textareaRef.current.setSelectionRange(len, len);
-    }
-  }, [isEditingNote]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -159,22 +115,6 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, on
   const handleRefreshPrice = (e: React.MouseEvent) => {
     e.stopPropagation();
     onRefreshPrice?.(item.id);
-  };
-
-  const openNoteEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDraftNote(item.note ?? "");
-    setIsEditingNote(true);
-  };
-
-  const saveNote = () => {
-    onUpdateNote?.(item.id, draftNote.trim() || null);
-    setIsEditingNote(false);
-  };
-
-  const handleNoteKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") { e.preventDefault(); setIsEditingNote(false); }
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveNote(); }
   };
 
   const completedClass = completed ? "is-completed" : "";
@@ -258,9 +198,7 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, on
 
       {/* Remove button top-right */}
       <button className="card-remove" onClick={handleRemove} aria-label="Remove">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
+        <RemoveIcon />
       </button>
 
       {/* Pin button top-right, left of remove */}
@@ -281,37 +219,13 @@ export function DiscoverCard({ item, onRemove, onToggleComplete, onTogglePin, on
         <CheckIcon />
       </button>
 
-      {/* Note dot + pencil button bottom-left */}
-      {hasNote && !isEditingNote && <span className="note-dot" />}
-      <button className="card-note" onClick={openNoteEdit} aria-label="Edit note">
-        <PencilIcon />
-      </button>
-
-      {/* Inline note editor */}
-      {isEditingNote && (
-        <div className="note-edit-area" onClick={(e) => e.stopPropagation()}>
-          <textarea
-            ref={textareaRef}
-            className="note-textarea"
-            value={draftNote}
-            onChange={(e) => setDraftNote(e.target.value.slice(0, 300))}
-            onKeyDown={handleNoteKeyDown}
-            onBlur={() => setTimeout(() => setIsEditingNote(false), 150)}
-            placeholder="Add a personal note…"
-            rows={3}
-          />
-          <div className="note-edit-footer">
-            <span className="note-char-count">{draftNote.length}/300</span>
-            <button
-              className="note-save-btn"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={saveNote}
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Note dot + pencil + inline editor, bottom-left */}
+      <CardNoteEditor
+        note={item.note}
+        isEditing={isEditingNote}
+        onEditingChange={setIsEditingNote}
+        onSave={(note) => onUpdateNote?.(item.id, note)}
+      />
     </div>
   );
 }

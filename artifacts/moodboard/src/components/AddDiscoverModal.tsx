@@ -3,6 +3,10 @@ import type { MoodboardItem, MovieResult } from "@/types";
 import { fetchMovieSearch, fetchMovieDetail, fetchOgMeta } from "@/lib/api";
 import { compressImage } from "@/lib/imageUtils";
 import { encodeMovieMeta, encodeReelMeta } from "@/lib/itemMeta";
+import { getDomain, normalizeUrl } from "@/lib/urlUtils";
+import { ModalShell } from "@/components/ModalShell";
+import { ModalTypeTabs } from "@/components/ModalTypeTabs";
+import { UploadPhotoButton } from "@/components/UploadPhotoButton";
 
 interface AddDiscoverModalProps {
   onClose: () => void;
@@ -11,10 +15,11 @@ interface AddDiscoverModalProps {
 
 type TabType = "movie" | "reel" | "link";
 
-function getDomain(url: string): string {
-  try { return new URL(url).hostname.replace("www.", ""); }
-  catch { return url; }
-}
+const TABS: Array<{ value: TabType; label: string }> = [
+  { value: "movie", label: "🎬 Movie" },
+  { value: "reel", label: "▶ Reel" },
+  { value: "link", label: "🔗 Link" },
+];
 
 function extractInstagramUsername(url: string): string {
   try {
@@ -32,7 +37,6 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
   const [tab, setTab] = useState<TabType>("movie");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   // Movie tab state
   const [movieQuery, setMovieQuery] = useState("");
@@ -46,7 +50,6 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
   const [reelUrl, setReelUrl] = useState("");
   const [reelCaption, setReelCaption] = useState("");
   const [reelThumbnail, setReelThumbnail] = useState<string | null>(null);
-  const reelFileRef = useRef<HTMLInputElement>(null);
 
   // Link tab state
   const [linkUrl, setLinkUrl] = useState("");
@@ -77,9 +80,7 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
     setDetailLoading(false);
   };
 
-  const handleReelThumbnail = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleReelThumbnail = async (file: File) => {
     try {
       const dataUrl = await compressImage(file, 800, 0.82);
       setReelThumbnail(dataUrl);
@@ -117,9 +118,9 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
           addedAt: new Date().toISOString(),
         };
       } else if (tab === "reel") {
-        let url = reelUrl.trim();
-        if (!url) { setError("Please enter a URL."); setLoading(false); return; }
-        if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+        const trimmed = reelUrl.trim();
+        if (!trimmed) { setError("Please enter a URL."); setLoading(false); return; }
+        const url = normalizeUrl(trimmed);
         const username = reelCaption.trim() || extractInstagramUsername(url);
         // Auto-fetch thumbnail if none manually uploaded
         let autoThumb: string | undefined = reelThumbnail || undefined;
@@ -141,9 +142,9 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
         };
       } else {
         // Link
-        let url = linkUrl.trim();
-        if (!url) { setError("Please enter a URL."); setLoading(false); return; }
-        if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+        const trimmed = linkUrl.trim();
+        if (!trimmed) { setError("Please enter a URL."); setLoading(false); return; }
+        const url = normalizeUrl(trimmed);
         const og = await fetchOgMeta(url);
         const domain = getDomain(url);
         item = {
@@ -175,27 +176,12 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
      !!linkUrl.trim());
 
   return (
-    <div
-      className="modal-overlay"
-      ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-    >
-      <div className="modal-drawer">
-        <div className="modal-handle" />
-        <p className="modal-label">Add to Discover</p>
-
-        {/* Tab switcher */}
-        <div className="modal-type-tabs">
-          {(["movie", "reel", "link"] as TabType[]).map((t) => (
-            <button
-              key={t}
-              className={`modal-type-tab ${tab === t ? "active" : ""}`}
-              onClick={() => { setTab(t); setError(null); }}
-            >
-              {t === "movie" ? "🎬 Movie" : t === "reel" ? "▶ Reel" : "🔗 Link"}
-            </button>
-          ))}
-        </div>
+    <ModalShell onClose={onClose} label="Add to Discover">
+        <ModalTypeTabs
+          tabs={TABS}
+          active={tab}
+          onChange={(t) => { setTab(t); setError(null); }}
+        />
 
         {/* Movie tab */}
         {tab === "movie" && (
@@ -263,21 +249,10 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
               value={reelCaption}
               onChange={(e) => setReelCaption(e.target.value)}
             />
-            <button
-              className={`modal-upload-btn ${reelThumbnail ? "has-file" : ""}`}
-              onClick={() => reelFileRef.current?.click()}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-              </svg>
-              {reelThumbnail ? "Thumbnail uploaded ✓" : "Upload thumbnail (optional)"}
-            </button>
-            <input
-              ref={reelFileRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={handleReelThumbnail}
+            <UploadPhotoButton
+              hasFile={!!reelThumbnail}
+              label={reelThumbnail ? "Thumbnail uploaded ✓" : "Upload thumbnail (optional)"}
+              onFileSelect={handleReelThumbnail}
             />
           </>
         )}
@@ -307,7 +282,6 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
             {loading ? "Adding…" : "Add to Discover"}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

@@ -1,37 +1,9 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import type { MoodboardItem } from "@/types";
 import { decodeQuoteMeta, encodeQuoteMeta, DEFAULT_QUOTE_COLOR } from "@/lib/itemMeta";
-
-const QUOTE_COLORS = [
-  "bleached-apricot",
-  "sea-salt",
-  "deep-claret",
-  "cowhide",
-  "radiant-orchid",
-  "banana-pudding",
-  "chili-pepper",
-  "guava-jam",
-  "rosette",
-  "honey",
-] as const;
-type QuoteColor = typeof QUOTE_COLORS[number];
-
-function isQuoteColor(value: string): value is QuoteColor {
-  return (QUOTE_COLORS as readonly string[]).includes(value);
-}
-
-const QUOTE_COLOR_LABELS: Record<QuoteColor, string> = {
-  "bleached-apricot": "Bleached Apricot",
-  "sea-salt": "Sea Salt",
-  "deep-claret": "Deep Claret",
-  cowhide: "Cowhide",
-  "radiant-orchid": "Radiant Orchid",
-  "banana-pudding": "Banana Pudding",
-  "chili-pepper": "Chili Pepper",
-  "guava-jam": "Guava Jam",
-  rosette: "Rosette",
-  honey: "Honey",
-};
+import { isQuoteColor, type QuoteColor } from "@/lib/quoteColors";
+import { ModalShell } from "@/components/ModalShell";
+import { QuoteColorPicker } from "@/components/QuoteColorPicker";
 
 interface EditQuoteModalProps {
   item: MoodboardItem;
@@ -50,7 +22,6 @@ export function EditQuoteModal({ item, onClose, onSave }: EditQuoteModalProps) {
   const [text, setText] = useState(item.title ?? "");
   const [author, setAuthor] = useState(item.subtitle ?? "");
   const [color, setColor] = useState<QuoteColor>(initialColor);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,15 +37,7 @@ export function EditQuoteModal({ item, onClose, onSave }: EditQuoteModalProps) {
   };
 
   return (
-    <div
-      className="modal-overlay"
-      ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-    >
-      <div className="modal-drawer">
-        <div className="modal-handle" />
-        <p className="modal-label">Edit quote</p>
-
+    <ModalShell onClose={onClose} label="Edit quote">
         <form onSubmit={handleSubmit}>
           <div className="modal-field">
             <textarea
@@ -98,18 +61,7 @@ export function EditQuoteModal({ item, onClose, onSave }: EditQuoteModalProps) {
 
           <div className="modal-field">
             <p className="modal-label">Color</p>
-            <div className="quote-color-pills">
-              {QUOTE_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`quote-color-pill quote-color-pill--${c}${color === c ? " selected" : ""}`}
-                  onClick={() => setColor(c)}
-                >
-                  {QUOTE_COLOR_LABELS[c]}
-                </button>
-              ))}
-            </div>
+            <QuoteColorPicker value={color} onChange={setColor} />
           </div>
 
           <div className="modal-actions">
@@ -122,7 +74,6 @@ export function EditQuoteModal({ item, onClose, onSave }: EditQuoteModalProps) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

@@ -1,21 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type { MoodboardItem } from "@/types";
 import { buildMapsUrl } from "@/lib/gridUtils";
 import { decodePlaceMeta } from "@/lib/itemMeta";
+import { MapPinIcon } from "@/components/icons";
+import { ModalShell } from "@/components/ModalShell";
 import { Lightbox } from "@/components/Lightbox";
 
 interface PlaceDetailModalProps {
   item: MoodboardItem;
   onClose: () => void;
-}
-
-function MapPinIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
 }
 
 function ExternalIcon() {
@@ -28,7 +21,6 @@ function ExternalIcon() {
 }
 
 export function PlaceDetailModal({ item, onClose }: PlaceDetailModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [gallery, setGallery] = useState<{ images: string[]; index: number } | null>(
     null,
   );
@@ -52,14 +44,7 @@ export function PlaceDetailModal({ item, onClose }: PlaceDetailModalProps) {
 
   return (
     <>
-      <div
-        className="modal-overlay"
-        ref={overlayRef}
-        onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-      >
-        <div className="modal-drawer place-detail">
-          <div className="modal-handle" />
-
+      <ModalShell onClose={onClose} className="place-detail">
           <header className="place-detail-header">
             <h2 className="place-detail-title">{item.title}</h2>
             {cuisines.length > 0 && (
@@ -94,7 +79,7 @@ export function PlaceDetailModal({ item, onClose }: PlaceDetailModalProps) {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <span className="place-map-link-icon"><MapPinIcon /></span>
+                <span className="place-map-link-icon"><MapPinIcon size={16} /></span>
                 <span className="place-map-link-text">
                   <strong>Open in Google Maps</strong>
                   {addressLine && <span>{addressLine}</span>}
@@ -186,8 +171,7 @@ export function PlaceDetailModal({ item, onClose }: PlaceDetailModalProps) {
               Done
             </button>
           </div>
-        </div>
-      </div>
+      </ModalShell>
 
       {gallery && (
         <Lightbox
