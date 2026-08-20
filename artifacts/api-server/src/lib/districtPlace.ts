@@ -1,5 +1,5 @@
 import { safeFetch } from "./url-safety";
-import { BROWSER_UA, extractMetaContent } from "../routes/fetchOg";
+import { extractMetaContent } from "../routes/fetchOg";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Restaurant extraction for District (district.in) dining pages — Zomato's
@@ -217,13 +217,9 @@ export function parseDistrictPlace(html: string, url: string): DistrictPlace | n
 export async function fetchDistrictPlace(url: string): Promise<DistrictPlace | null> {
   try {
     const response = await safeFetch(url, {
-      headers: {
-        "User-Agent": BROWSER_UA,
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-IN,en;q=0.9",
-        "Cache-Control": "no-cache",
-      },
+      // District is India-only; ask for Indian-locale results rather than
+      // taking the US default the other callers get.
+      headers: { "Accept-Language": "en-IN,en;q=0.9" },
       signal: AbortSignal.timeout(12000),
     });
     if (!response.ok) {

@@ -1,6 +1,6 @@
 import { gunzipSync } from "node:zlib";
 import { pool } from "./db";
-import { BROWSER_UA } from "../routes/fetchOg";
+import { BROWSER_UA } from "./url-safety";
 import { logger } from "./logger";
 
 // ─────────────────────────────────────────────────────────────────────────────

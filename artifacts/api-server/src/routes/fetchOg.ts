@@ -1,10 +1,8 @@
 import { Router, type IRouter } from "express";
 import sharp from "sharp";
+import { safeFetch } from "../lib/url-safety";
 
 const router: IRouter = Router();
-
-export const BROWSER_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Image compression — convert any remote image URL into a permanent base64
@@ -18,8 +16,11 @@ const WEBP_QUALITY = 82;
 
 export async function compressToWebPDataUrl(imageUrl: string): Promise<string | null> {
   try {
-    const res = await fetch(imageUrl, {
-      headers: { "User-Agent": BROWSER_UA },
+    // imageUrl is attacker-influenced whenever it came from a page's own
+    // og:image (the generic-scrape path below) or from Microlink's response —
+    // both ultimately reflect content a remote page chose. safeFetch is what
+    // stops that from becoming a request to an internal address.
+    const res = await safeFetch(imageUrl, {
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
@@ -387,16 +388,7 @@ router.get("/fetch-og", async (req, res) => {
 
   // Generic websites → try direct OG scrape first (free, no quota)
   try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": BROWSER_UA,
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-      },
+    const response = await safeFetch(url, {
       signal: AbortSignal.timeout(10000),
     });
 

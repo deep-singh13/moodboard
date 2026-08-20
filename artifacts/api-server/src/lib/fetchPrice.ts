@@ -1,5 +1,5 @@
 import { safeFetch } from "./url-safety";
-import { BROWSER_UA, extractMetaContent } from "../routes/fetchOg";
+import { extractMetaContent } from "../routes/fetchOg";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Price + availability extraction for generic product pages. Most e-commerce
@@ -163,14 +163,6 @@ export function extractPriceInfo(html: string): PriceInfo {
 export async function fetchPriceInfo(url: string): Promise<PriceInfo & { fetchFailed?: boolean }> {
   try {
     const response = await safeFetch(url, {
-      headers: {
-        "User-Agent": BROWSER_UA,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-      },
       signal: AbortSignal.timeout(10000),
     });
     if (!response.ok) return { fetchFailed: true, availability: "unknown" };
