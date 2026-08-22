@@ -77,6 +77,23 @@
   /* Morphic tabs — the continuous track the active pill detaches from. Needs a
      clear step away from --reset-btn-bg or the track vanishes into its frame. */
   --tab-track-bg: oklch(0.915 0.006 70);
+  /* Inactive-tab label — same as --reset-btn-text here (5.5:1 on --tab-track-bg),
+     but the dark override below needs its own value since --tab-track-bg is
+     lighter in dark mode than --reset-btn-bg is, so reusing --reset-btn-text
+     there drops under 4.5:1. */
+  --tab-inactive-text: #5A5856;
+
+  /* Resting-state icon color for the small round card buttons (mark complete,
+     etc). --text-muted is intentionally faint for de-emphasized body text, but
+     that same faintness makes an icon unreadable before hover; this is tuned
+     to the 3:1 non-text contrast floor against --bg-card instead. */
+  --icon-resting: oklch(0.669 0.005 70);
+
+  /* Topbar wordmark — kept separate from --bg-btn-add (the shared brand tan)
+     because that tan only clears WCAG AA against the dark canvas. Reusing it
+     here washes out to ~2:1 against the light canvas, so light mode gets its
+     own deeper shade of the same hue. */
+  --wordmark-color: #926731;
 
   /* Light rays — caramel rather than the source's pale blue, so the wash reads
      as warm daylight over the cream canvas. Normal blend here: screen over a
@@ -146,6 +163,13 @@
   --reset-btn-text: #7A7A78;
 
   --tab-track-bg: oklch(0.28 0.006 70);
+  /* #7A7A78 (--reset-btn-text) only reaches 3.4:1 on this lighter dark-mode
+     track — bumped to clear 4.5:1 while staying in the same warm-neutral family. */
+  --tab-inactive-text: #928F8B;
+
+  --icon-resting: oklch(0.5 0.005 70);
+
+  --wordmark-color: #D4A574;
 
   /* Screen blending only pays off against a dark surface — here it turns the
      rays into an additive glow, so they carry less alpha than the light theme. */
@@ -209,6 +233,21 @@ body {
 /* Numbers should align — apply to counts, char counts, etc. */
 .tnum { font-variant-numeric: tabular-nums; }
 
+/* Keyboard focus — a single on-brand ring for every interactive control.
+   Without this, most buttons and links here fall back to the browser's
+   default UA outline, which is a plain blue rectangle that clashes with
+   the app's pill shapes and warm palette (only .morphic-tab had its own
+   focus-visible rule before this). :focus-visible keeps it mouse/touch-silent
+   and keyboard-only, same as the browser default it replaces. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--bg-btn-add);
+  outline-offset: 2px;
+}
+
 /* Honor reduced motion — strip choreographed animation, keep state transitions */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -259,7 +298,7 @@ body {
   font-style: italic;
   font-size: 17px;
   font-weight: 400;
-  color: var(--bg-btn-add);
+  color: var(--wordmark-color);
   letter-spacing: -0.01em;
   white-space: nowrap;
   user-select: none;
@@ -472,10 +511,21 @@ body {
    CANVAS & WRAPPER
    ============================================================ */
 
+/* Offset clear of the fixed topbar, same idea as .discover-page's
+   padding-top: the canvas's own "top: 50%" center point is otherwise the
+   viewport's vertical center, so on narrow widths — where the topbar wraps
+   to 2-3 rows — whatever card starts nearest the origin renders straight
+   behind the controls on first paint. Shifting the wrapper's own box down
+   by --topbar-bottom moves that center point down with it — by ~24px at
+   desktop (half the topbar's one-row height), more once it wraps. 0px
+   fallback keeps first paint identical to before if the measurement
+   hasn't landed yet, same as .discover-page. */
 .moodboard-wrapper {
-  width: 100%;
-  height: 100%;
-  position: relative;
+  position: absolute;
+  top: var(--topbar-bottom, 0px);
+  left: 0;
+  right: 0;
+  bottom: 0;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
@@ -618,7 +668,12 @@ body {
 }
 
 .card-body {
-  padding: 11px 13px 13px;
+  /* Bottom padding cleared to 40px on purpose: .card-note sits absolutely at
+     bottom:9px/left:9px over the image, and .card-type-badge is the last
+     thing in this flow, left-aligned at the same edge — at 13px the badge's
+     own line lands inside the note button's 9-35px band and the pencil icon
+     clips "SUBSTACK" down to "STACK". 40px clears that band with a margin. */
+  padding: 11px 13px 40px;
 }
 
 .card-title {
@@ -1224,7 +1279,7 @@ body {
   border-radius: 50%;
   border: 1.5px solid var(--border-card-hover);
   background: var(--bg-card);
-  color: var(--text-muted);
+  color: var(--icon-resting);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1361,6 +1416,22 @@ body {
 }
 
 /* ============================================================
+   TABLET — topbar wrap (≤ 1024px)
+   Between this and the 640px tier below, the topbar's controls no longer
+   fit one row (measured overflow at 768px: the theme toggle lands fully
+   outside the viewport and is unreachable) but there's still room for
+   full labels, so this only turns on wrapping — none of the icon-only
+   collapsing the narrower tier below does.
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .moodboard-topbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}
+
+/* ============================================================
    MOBILE — topbar layout fix (≤ 640px)
    Desktop layout is completely unchanged above this breakpoint.
    ============================================================ */
@@ -1457,7 +1528,7 @@ body {
   font-weight: 500;
   line-height: 1.45;
   white-space: nowrap;
-  color: var(--reset-btn-text);
+  color: var(--tab-inactive-text);
   background: var(--tab-track-bg);
   border-radius: 0;
   margin: 0;
@@ -2459,10 +2530,28 @@ body {
 }
 
 .spotlight-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   padding: 40px 16px;
   text-align: center;
-  color: var(--muted, #8a8a8e);
+}
+
+.spotlight-empty-icon {
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.spotlight-empty-title {
+  color: var(--text-primary);
   font-size: 14px;
+  font-weight: 500;
+}
+
+.spotlight-empty-hint {
+  color: var(--text-muted);
+  font-size: 12.5px;
 }
 
 @keyframes spotlight-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -2525,8 +2614,21 @@ body {
   font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: var(--tracking-eyebrow);
+  /* Default (data-tier="high", 4.5+): green. */
   background: rgba(76, 175, 80, 0.14);
   color: oklch(0.58 0.10 145);
+}
+
+/* Below 4.5, the pill shifts hue rather than just going green-for-everything,
+   so a 3.8 and a 4.9 don't read identically at a glance. */
+.place-rating-pill[data-tier="mid"] {
+  background: rgba(217, 164, 65, 0.16);
+  color: oklch(0.58 0.11 75);
+}
+
+.place-rating-pill[data-tier="low"] {
+  background: rgba(224, 122, 53, 0.16);
+  color: oklch(0.56 0.13 45);
 }
 
 .place-rating-count {

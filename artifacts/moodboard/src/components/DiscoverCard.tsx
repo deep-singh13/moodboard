@@ -26,15 +26,22 @@ function RefreshIcon() {
   );
 }
 
+// Cards from different sources carry different currencies, and they all sit
+// in the same grid — a bare "$72.00" next to "₹1,499.00" reads as directly
+// comparable at a glance even though it isn't. INR is this board's home
+// currency (everything else saved here assumes it), so it's the one case
+// left unlabeled; anything else gets the ISO code spelled out.
 function formatPrice(price: number, currency?: string): string {
+  const code = (currency || "USD").toUpperCase();
   try {
-    return new Intl.NumberFormat("en-US", {
+    const formatted = new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: currency || "USD",
+      currency: code,
       maximumFractionDigits: 2,
     }).format(price);
+    return code === "INR" ? formatted : `${formatted} ${code}`;
   } catch {
-    return `$${price.toFixed(2)}`;
+    return `$${price.toFixed(2)} ${code}`;
   }
 }
 

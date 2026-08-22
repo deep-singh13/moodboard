@@ -65,7 +65,12 @@ export function PlaceCard({
 
         <div className="discover-badge-row">
           {meta.rating != null && (
-            <span className="place-rating-pill tnum">{meta.rating.toFixed(1)} ★</span>
+            <span
+              className="place-rating-pill tnum"
+              data-tier={meta.rating >= 4.5 ? "high" : meta.rating >= 4.0 ? "mid" : "low"}
+            >
+              {meta.rating.toFixed(1)} ★
+            </span>
           )}
           {meta.priceForTwo && (
             <span className="discover-price-pill">{meta.priceForTwo}</span>

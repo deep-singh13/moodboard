@@ -125,7 +125,25 @@ export function SpotlightSearch({
         </div>
 
         {results.length === 0 ? (
-          <div className="spotlight-empty">No results for &ldquo;{query}&rdquo;</div>
+          <div className="spotlight-empty">
+            <svg
+              className="spotlight-empty-icon"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+              <path d="M8.5 8.5l5 5M13.5 8.5l-5 5" />
+            </svg>
+            <p className="spotlight-empty-title">No results for &ldquo;{query}&rdquo;</p>
+            <p className="spotlight-empty-hint">Try a different keyword, or check the spelling.</p>
+          </div>
         ) : (
           <div className="spotlight-results">
             {results.map((item, i) => (

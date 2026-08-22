@@ -31,7 +31,10 @@ export default function Quotes({ spotlightOpen, onSpotlightClose }: QuotesProps)
 
   const displayed = items;
 
-  const numCols = useColumnCount();
+  // Never open more columns than there are quotes — a handful of saved
+  // quotes spread across 4 full-width flex columns leaves the grid looking
+  // sparser than the collection actually is.
+  const numCols = Math.max(1, Math.min(useColumnCount(), displayed.length || 1));
   const columns = toColumns(displayed, numCols);
 
   return (
