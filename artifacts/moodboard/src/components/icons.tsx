@@ -107,3 +107,64 @@ export function RemoveIcon() {
     </svg>
   );
 }
+
+/* ---------------------------------------------------------------------------
+ * Sidebar nav icons — one per tab. Places reuses MapPinIcon above rather than
+ * a fifth near-duplicate.
+ * ------------------------------------------------------------------------ */
+
+export function BoardIcon({ size = 17 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+export function DiscoverIcon({ size = 17 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </svg>
+  );
+}
+
+export function QuoteIcon({ size = 17 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 8c-1.6 0-3 1.3-3 3.5S5.4 15 7 15c.2 0 .4 0 .6-.05C7.3 16.55 6.2 17.55 5 18" />
+      <path d="M16.5 8c-1.6 0-3 1.3-3 3.5s1.4 3.5 3 3.5c.2 0 .4 0 .6-.05-.3 1.6-1.4 2.6-2.6 3.05" />
+    </svg>
+  );
+}

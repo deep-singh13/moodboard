@@ -1,8 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { AddItemModal } from "@/components/AddItemModal";
 import { MoodboardCard } from "@/components/MoodboardCard";
 import { Lightbox } from "@/components/Lightbox";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import type { MoodboardItem } from "@/types";
 import { refreshAllPrices } from "@/lib/api";
 import { useBoard } from "@/lib/useBoard";
@@ -10,17 +9,22 @@ import Discover from "@/pages/discover";
 import Quotes from "@/pages/quotes";
 import Places from "@/pages/places";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
-import { MorphicTabs, type MorphicTabItem } from "@/components/MorphicTabs";
-import { LightRays } from "@/components/LightRays";
+import { Sidebar, type TabId } from "@/components/Sidebar";
 
-type TabId = "board" | "discover" | "quotes" | "places";
+const SIDEBAR_COLLAPSED_KEY = "moodboard-sidebar-collapsed";
 
-const TABS: ReadonlyArray<MorphicTabItem<TabId>> = [
-  { id: "board", label: "Board" },
-  { id: "discover", label: "Discover" },
-  { id: "quotes", label: "Quotes" },
-  { id: "places", label: "Places" },
-];
+function loadSidebarCollapsed(): boolean {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (stored === "1") return true;
+    if (stored === "0") return false;
+  } catch {}
+  // No stored preference yet — default to collapsed on narrow viewports,
+  // where a 220px rail eats an unreasonable share of the screen. innerWidth
+  // is 0 in a sliver of embedding contexts before the first layout lands;
+  // treat that as "unknown" rather than "narrow" so it doesn't default-collapse.
+  return typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth < 768;
+}
 
 const GRID_GAP = 20;
 const COLS_SIZES = [220, 320, 420];
@@ -146,10 +150,10 @@ export default function Moodboard() {
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [surpriseId, setSurpriseId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("board");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const topbarRef = useRef<HTMLDivElement>(null);
   const surpriseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const panX = useRef(0);
@@ -162,36 +166,14 @@ export default function Moodboard() {
   const lastTouches = useRef<TouchList | null>(null);
   const lastPinchDist = useRef<number | null>(null);
 
-  // The topbar is fixed and floats over the pages, so the pages have to pad
-  // themselves clear of it. Its height isn't a constant: below 640px it wraps,
-  // and how many rows it takes depends on both the viewport width and which
-  // tab is active (Board carries extra controls). Publishing the measured
-  // bottom edge lets the CSS pad by exactly the right amount instead of
-  // hardcoding a number that is wrong at most widths.
-  useLayoutEffect(() => {
-    const el = topbarRef.current;
-    if (!el) return;
-
-    const publish = () => {
-      const { bottom } = el.getBoundingClientRect();
-      document.documentElement.style.setProperty(
-        "--topbar-bottom",
-        `${Math.round(bottom)}px`,
-      );
-    };
-
-    publish();
-    // Catches wrapping and per-tab content changes; the resize listener covers
-    // the `top` offset, which shifts at the 640px breakpoint without the
-    // element's own size necessarily changing.
-    const observer = new ResizeObserver(publish);
-    observer.observe(el);
-    window.addEventListener("resize", publish);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", publish);
-    };
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+      } catch {}
+      return next;
+    });
   }, []);
 
   const applyTransform = useCallback(() => {
@@ -481,71 +463,41 @@ export default function Moodboard() {
   const displayedItems = layoutItems;
 
   return (
-    <div className="moodboard-root" data-theme={theme}>
-      {/* Ambient background for every tab — mounted once here rather than per
-          page, so the rays keep their phase when you switch tabs instead of
-          restarting the animation each time. */}
-      <LightRays />
+    <div
+      className={`moodboard-root ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}
+      data-theme={theme}
+    >
+      <Sidebar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebarCollapsed}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpenSearch={() => setSpotlightOpen(true)}
+      />
 
-      <div className="moodboard-topbar" ref={topbarRef}>
-        <span className="topbar-wordmark">moodboard</span>
-        <div className="topbar-divider" aria-hidden="true" />
-
-        {/* Tab switcher */}
-        <MorphicTabs<TabId>
-          items={TABS}
-          activeId={activeTab}
-          onSelect={setActiveTab}
-          label="Sections"
-        />
-
-        {/* Board-only controls */}
-        {activeTab === "board" && (
-          <>
-            <button className="reset-btn" onClick={resetView} title="Reset view">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-              Reset view
-            </button>
-            <span className="item-count">
-              {items.length} {items.length === 1 ? "item" : "items"}
-            </span>
-          </>
-        )}
-
-        {/* Search — shared trigger; opens Spotlight modal */}
-        <button
-          className="search-trigger"
-          onClick={() => setSpotlightOpen(true)}
-          aria-label="Open search"
-        >
-          <svg
-            className="search-icon"
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
-          </svg>
-          <span className="search-trigger-label">Search…</span>
-          <kbd className="search-trigger-kbd">⌘K</kbd>
-        </button>
-
-        {/* Board-only: Surprise Me */}
-        {activeTab === "board" && (
+      {/* Board-only controls — meaningless on Discover/Quotes/Places, so they
+          float above the canvas rather than living in the sidebar. */}
+      {activeTab === "board" && (
+        <div className="board-utility-bar">
+          <button className="reset-btn" onClick={resetView} title="Reset view">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            Reset view
+          </button>
+          <span className="item-count">
+            {items.length} {items.length === 1 ? "item" : "items"}
+          </span>
           <button
             className="surprise-btn"
             onClick={handleSurpriseMe}
@@ -557,10 +509,8 @@ export default function Moodboard() {
             </svg>
             <span className="surprise-btn-label">Surprise me</span>
           </button>
-        )}
-
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
-      </div>
+        </div>
+      )}
 
       {/* Board canvas — stays mounted to preserve pan/zoom state */}
       <div

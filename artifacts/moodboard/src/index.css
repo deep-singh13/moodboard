@@ -35,6 +35,11 @@
   /* Easing — exponential ease-out only (no bounce/elastic) */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Vertical clearance for the board canvas below the board utility bar
+     (Reset view / item count / Surprise me) — a single short row that never
+     wraps, so this is a plain constant rather than a JS-measured value. */
+  --board-bar-clearance: 64px;
 }
 
 :root {
@@ -47,6 +52,17 @@
   --bg-btn-add: #D4A574;
   --bg-btn-add-hover: #C4956A;
   --bg-topbar: oklch(0.965 0.006 70 / 0.88);
+
+  /* Sidebar-specific accent — same brand tan as --bg-btn-add here (light mode
+     never changed), but dark mode below darkens it independently. Kept as its
+     own token rather than repointing --bg-btn-add so the many other consumers
+     of that var (badges, chips, focus rings, quote-card accents — all on
+     their own card surfaces, not the new dark canvas) stay exactly as they
+     were; only the FAB and the active sidebar tab needed to change. */
+  --sidebar-accent: #D4A574;
+  --sidebar-accent-hover: #C4956A;
+  --sidebar-accent-text: #111110;
+  --sidebar-bg: var(--bg-card);
 
   /* Borders — tinted, not flat black */
   --border-card: oklch(0.18 0.01 70 / 0.07);
@@ -95,18 +111,11 @@
      own deeper shade of the same hue. */
   --wordmark-color: #926731;
 
-  /* Light rays — caramel rather than the source's pale blue, so the wash reads
-     as warm daylight over the cream canvas. Normal blend here: screen over a
-     near-white background washes out to nothing. */
-  --light-rays-color: rgba(212, 165, 116, 0.30);
-  --light-rays-blend: normal;
-  --light-rays-blur: 30px;
-  --light-rays-length: 72vh;
-
   /* Shadows */
   --card-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
   --card-shadow-hover: 0 6px 24px rgba(0,0,0,0.11), 0 2px 8px rgba(0,0,0,0.06);
   --fab-shadow: 0 4px 20px rgba(212, 165, 116, 0.38), 0 2px 8px rgba(0,0,0,0.12);
+  --fab-shadow-hover: 0 6px 28px rgba(212, 165, 116, 0.45), 0 2px 8px rgba(0,0,0,0.14);
 
   /* Dot grid */
   --dot-color: rgba(0, 0, 0, 0.055);
@@ -135,6 +144,23 @@
   --bg-btn-add: #D4A574;
   --bg-btn-add-hover: #C4956A;
   --bg-topbar: oklch(0.16 0.005 70 / 0.88);
+
+  /* User-supplied slate palette (#06141B → #CCD0CF), picked to sit with the
+     frosty background's own cool blue-gray glow rather than the brand tan —
+     two warm derivations in a row (darkened, then desaturated) still read as
+     "the beige accent" next to a neutral background; a hue that actually
+     belongs to that background's family was the fix. #4A5C6A is the palette's
+     mid tier — light enough to read as a distinct accent (the two steps
+     below it are within ~1.5:1 of the background, too close to work as a
+     fill), dark enough to stay moody rather than pastel. Hover is a 25% blend
+     toward the next tier up (#9BA8AB) rather than jumping straight to it:
+     #9BA8AB itself only gives white text 2.45:1, which would go unreadable
+     the instant a button is hovered. Text flips to white, since #111110
+     (the light-mode pairing) has almost no contrast here. */
+  --sidebar-accent: #4A5C6A;
+  --sidebar-accent-hover: #5e6f7a;
+  --sidebar-accent-text: #FFFFFF;
+  --sidebar-bg: #17181c;
 
   /* Borders */
   --border-card: oklch(1 0 0 / 0.07);
@@ -169,19 +195,19 @@
 
   --icon-resting: oklch(0.5 0.005 70);
 
-  --wordmark-color: #D4A574;
-
-  /* Screen blending only pays off against a dark surface — here it turns the
-     rays into an additive glow, so they carry less alpha than the light theme. */
-  --light-rays-color: rgba(212, 165, 116, 0.20);
-  --light-rays-blend: screen;
-  --light-rays-blur: 34px;
-  --light-rays-length: 72vh;
+  /* Same slate palette as --sidebar-accent, one tier lighter (#9BA8AB) —
+     as text rather than a filled shape it needs more contrast than the
+     accent's own tier gives (7.25:1 here vs --sidebar-bg). */
+  --wordmark-color: #9BA8AB;
 
   /* Shadows */
   --card-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 2px 10px rgba(0,0,0,0.2);
   --card-shadow-hover: 0 8px 32px rgba(0,0,0,0.45), 0 2px 10px rgba(0,0,0,0.25);
-  --fab-shadow: 0 4px 20px rgba(212, 165, 116, 0.28), 0 2px 8px rgba(0,0,0,0.35);
+  /* Retinted to --sidebar-accent's slate (#4A5C6A) — kept subtle rather than
+     a saturated glow, same reasoning as the accent itself: this button sits
+     against a quiet, mostly-neutral background, not a spotlight. */
+  --fab-shadow: 0 4px 20px rgba(74, 92, 106, 0.28), 0 2px 8px rgba(0,0,0,0.35);
+  --fab-shadow-hover: 0 6px 28px rgba(74, 92, 106, 0.36), 0 2px 8px rgba(0,0,0,0.4);
 
   /* Dot grid */
   --dot-color: rgba(255, 255, 255, 0.04);
@@ -235,9 +261,8 @@ body {
 
 /* Keyboard focus — a single on-brand ring for every interactive control.
    Without this, most buttons and links here fall back to the browser's
-   default UA outline, which is a plain blue rectangle that clashes with
-   the app's pill shapes and warm palette (only .morphic-tab had its own
-   focus-visible rule before this). :focus-visible keeps it mouse/touch-silent
+   default UA outline, which is a plain blue rectangle that clashes with the
+   app's pill shapes and warm palette. :focus-visible keeps it mouse/touch-silent
    and keyboard-only, same as the browser default it replaces. */
 button:focus-visible,
 a:focus-visible,
@@ -262,7 +287,13 @@ textarea:focus-visible,
    MOODBOARD ROOT — with dot-grid canvas texture
    ============================================================ */
 
+/* --sidebar-width drives every content area's left clearance (.board-layer,
+   .discover-page, .board-utility-bar) from one place, the same idea the old
+   --topbar-bottom var served for a floating top bar. Unlike that one, this
+   never needs JS measurement — collapsed/expanded are exactly two known
+   widths, toggled by a class. */
 .moodboard-root {
+  --sidebar-width: 220px;
   width: 100%;
   height: 100%;
   position: relative;
@@ -272,47 +303,237 @@ textarea:focus-visible,
   background-size: 26px 26px;
 }
 
+.moodboard-root.sidebar-collapsed {
+  --sidebar-width: 64px;
+}
+
+/* Dark mode swaps the dot grid for a static, minimal "frosty" look — a
+   soft-focus vignette in cool near-black grays rather than the light theme's
+   warm paper. No blur/transparency: it's a solid background, just styled to
+   read as depth rather than as a flat fill. Kept mostly neutral on purpose
+   (matching the reference this was modeled on) rather than leaning on the
+   brand tan, with only a faint warm glow so it doesn't feel disconnected
+   from the rest of the palette. */
+[data-theme="dark"] .moodboard-root {
+  background-color: #0e0f12;
+  background-image:
+    radial-gradient(ellipse 65% 55% at 22% 18%, rgba(255, 255, 255, 0.05), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 82% 88%, rgba(148, 160, 184, 0.05), transparent 65%),
+    radial-gradient(ellipse 50% 45% at 85% 10%, rgba(212, 165, 116, 0.04), transparent 60%);
+  background-size: auto;
+}
+
 /* ============================================================
-   TOP BAR
+   SIDEBAR
    ============================================================ */
 
-.moodboard-topbar {
+.sidebar {
   position: fixed;
-  top: 16px;
-  left: 16px;
-  right: 16px;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-card);
+  transition: width 0.25s var(--ease-out-quart);
+}
+
+.sidebar-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  z-index: 100;
-  pointer-events: none;
+  height: 26px;
+  padding: 0 8px;
+  margin-bottom: 22px;
+  overflow: hidden;
 }
 
-.moodboard-topbar > * {
-  pointer-events: all;
-}
-
-/* Brand wordmark */
-.topbar-wordmark {
+.sidebar-wordmark {
   font-family: 'Instrument Serif', Georgia, serif;
   font-style: italic;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 400;
   color: var(--wordmark-color);
   letter-spacing: -0.01em;
   white-space: nowrap;
   user-select: none;
-  padding: 0 4px;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
 }
 
-.topbar-divider {
-  width: 1px;
-  height: 18px;
-  background: var(--border-card-hover);
+.sidebar-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+}
+
+.sidebar-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--reset-btn-text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-tab svg {
   flex-shrink: 0;
-  margin: 0 2px;
+}
+
+.sidebar-tab:hover {
+  background: var(--tab-track-bg);
+  color: var(--text-primary);
+}
+
+.sidebar-tab.is-active {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-text);
+}
+
+.sidebar-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-card);
+}
+
+.sidebar-search-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--reset-btn-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--reset-btn-text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sidebar-search-btn:hover {
+  background: var(--tab-track-bg);
+  border-color: var(--border-card-hover);
+}
+
+.sidebar-search-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.sidebar-search-label {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-search-kbd {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--tab-track-bg);
+  padding: 2px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* Straddles the sidebar's own right edge rather than sitting inside the
+   footer stack, so it reads as a control on the boundary itself. */
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 24px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--reset-btn-bg);
+  border: 1px solid var(--reset-btn-border);
+  color: var(--reset-btn-text);
+  cursor: pointer;
+  box-shadow: var(--card-shadow);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--bg-topbar);
+  color: var(--text-primary);
+}
+
+.sidebar-collapse-btn svg {
+  transition: transform 0.25s var(--ease-out-quart);
+}
+
+.sidebar.is-collapsed .sidebar-collapse-btn svg {
+  transform: rotate(180deg);
+}
+
+/* Collapsed: icon-only rail — center everything, hide every label. */
+.sidebar.is-collapsed .sidebar-header { justify-content: center; padding: 0; }
+.sidebar.is-collapsed .sidebar-wordmark { display: none; }
+.sidebar.is-collapsed .sidebar-tab { justify-content: center; padding: 9px 0; }
+.sidebar.is-collapsed .sidebar-tab-label { display: none; }
+.sidebar.is-collapsed .sidebar-footer { flex-direction: column; }
+.sidebar.is-collapsed .sidebar-search-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 8px 0;
+  border-color: transparent;
+}
+.sidebar.is-collapsed .sidebar-search-label,
+.sidebar.is-collapsed .sidebar-search-kbd {
+  display: none;
+}
+
+/* ============================================================
+   BOARD UTILITY BAR — Reset view / item count / Surprise me.
+   Board-only, floats above the canvas the same way the old topbar did;
+   just anchored past the sidebar instead of the viewport edge.
+   ============================================================ */
+
+.board-utility-bar {
+  position: fixed;
+  top: 16px;
+  left: calc(var(--sidebar-width) + 16px);
+  right: 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  z-index: 90;
+  pointer-events: none;
+  transition: left 0.25s var(--ease-out-quart);
+}
+
+.board-utility-bar > * {
+  pointer-events: all;
 }
 
 .reset-btn {
@@ -328,6 +549,7 @@ textarea:focus-visible,
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: var(--card-shadow);
@@ -348,74 +570,6 @@ textarea:focus-visible,
   color: var(--text-muted);
   font-weight: 400;
   white-space: nowrap;
-}
-
-/* ── Search ──────────────────────────────────────────────── */
-
-.search-wrap {
-  flex: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-  max-width: 300px;
-  min-width: 0;
-}
-
-.search-icon {
-  position: absolute;
-  left: 11px;
-  color: var(--text-muted);
-  pointer-events: none;
-  flex-shrink: 0;
-}
-
-.search-input {
-  width: 100%;
-  padding: 7px 30px 7px 30px;
-  background: var(--reset-btn-bg);
-  border: 1px solid var(--reset-btn-border);
-  border-radius: 100px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  color: var(--text-primary);
-  outline: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--card-shadow);
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-}
-
-.search-input::placeholder {
-  color: var(--text-muted);
-}
-
-.search-input:focus {
-  border-color: var(--bg-btn-add);
-  background: var(--bg-topbar);
-  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
-}
-
-.search-clear-btn {
-  position: absolute;
-  right: 8px;
-  width: 18px;
-  height: 18px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  padding: 0;
-  transition: color 0.15s;
-}
-
-.search-clear-btn:hover {
-  color: var(--text-primary);
 }
 
 /* ── Surprise Me ─────────────────────────────────────────── */
@@ -467,9 +621,6 @@ textarea:focus-visible,
   border-radius: 100px;
   color: var(--toggle-icon);
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--card-shadow);
   flex-shrink: 0;
   transition: background 0.15s, transform 0.12s;
 }
@@ -482,47 +633,20 @@ textarea:focus-visible,
   transform: translateY(0);
 }
 
-/* ── Search empty state ──────────────────────────────────── */
-
-.search-empty-state {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  z-index: 50;
-  pointer-events: none;
-}
-
-.search-empty-inner {
-  padding: 36px 48px;
-  border: 1.5px dashed var(--empty-state-border);
-  border-radius: 20px;
-  max-width: 320px;
-}
-
-.search-empty-inner p {
-  font-size: 14px;
-  color: var(--text-muted);
-  line-height: 1.65;
-}
-
 /* ============================================================
    CANVAS & WRAPPER
    ============================================================ */
 
-/* Offset clear of the fixed topbar, same idea as .discover-page's
-   padding-top: the canvas's own "top: 50%" center point is otherwise the
-   viewport's vertical center, so on narrow widths — where the topbar wraps
-   to 2-3 rows — whatever card starts nearest the origin renders straight
-   behind the controls on first paint. Shifting the wrapper's own box down
-   by --topbar-bottom moves that center point down with it — by ~24px at
-   desktop (half the topbar's one-row height), more once it wraps. 0px
-   fallback keeps first paint identical to before if the measurement
-   hasn't landed yet, same as .discover-page. */
+/* Offset clear of the fixed board utility bar: the canvas's own "top: 50%"
+   center point is otherwise the viewport's vertical center, so whatever card
+   starts nearest the origin would render straight behind Reset view / item
+   count / Surprise me. --board-bar-clearance is a plain constant (the bar
+   never wraps — it's short and always sits clear of the sidebar), so unlike
+   the old --topbar-bottom this needs no JS measurement. .board-layer itself
+   carries the --sidebar-width clearance, so this only needs the top offset. */
 .moodboard-wrapper {
   position: absolute;
-  top: var(--topbar-bottom, 0px);
+  top: var(--board-bar-clearance);
   left: 0;
   right: 0;
   bottom: 0;
@@ -537,6 +661,18 @@ textarea:focus-visible,
   left: 50%;
   transform-origin: center center;
   will-change: transform;
+}
+
+/* Sits to the right of the sidebar, same clearance mechanism as
+   .discover-page. */
+.board-layer {
+  position: absolute;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  transition: left 0.25s var(--ease-out-quart);
 }
 
 /* ============================================================
@@ -972,7 +1108,7 @@ textarea:focus-visible,
   right: 24px;
   height: 48px;
   padding: 0 22px 0 18px;
-  background: var(--bg-btn-add);
+  background: var(--sidebar-accent);
   color: var(--text-btn-add);
   border: none;
   border-radius: 100px;
@@ -991,13 +1127,29 @@ textarea:focus-visible,
 }
 
 .fab-btn:hover {
-  background: var(--bg-btn-add-hover);
+  background: var(--sidebar-accent-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 28px rgba(212, 165, 116, 0.45), 0 2px 8px rgba(0,0,0,0.14);
+  box-shadow: var(--fab-shadow-hover);
 }
 
 .fab-btn:active {
   transform: translateY(0) scale(0.97);
+}
+
+/* Compact circular FAB on narrow screens — the label wastes width a small
+   viewport doesn't have to spare. */
+@media (max-width: 640px) {
+  .fab-btn {
+    height: 52px;
+    width: 52px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+
+  .fab-label {
+    display: none;
+  }
 }
 
 /* ============================================================
@@ -1416,182 +1568,24 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   TABLET — topbar wrap (≤ 1024px)
-   Between this and the 640px tier below, the topbar's controls no longer
-   fit one row (measured overflow at 768px: the theme toggle lands fully
-   outside the viewport and is unreachable) but there's still room for
-   full labels, so this only turns on wrapping — none of the icon-only
-   collapsing the narrower tier below does.
-   ============================================================ */
-
-@media (max-width: 1024px) {
-  .moodboard-topbar {
-    flex-wrap: wrap;
-    row-gap: 8px;
-  }
-}
-
-/* ============================================================
-   MOBILE — topbar layout fix (≤ 640px)
-   Desktop layout is completely unchanged above this breakpoint.
-   ============================================================ */
-
-@media (max-width: 640px) {
-  .moodboard-topbar {
-    flex-wrap: wrap;
-    gap: 8px;
-    top: 12px;
-  }
-
-  /* Hide wordmark on mobile to save space */
-  .topbar-wordmark,
-  .topbar-divider {
-    display: none;
-  }
-
-  /* Search bar moves to its own full-width first row */
-  .search-wrap {
-    order: -1;
-    flex: 1 1 100%;
-    max-width: none;
-  }
-
-  .search-input {
-    font-size: 13px;
-  }
-
-  /* Collapse "Surprise me" to icon-only */
-  .surprise-btn-label {
-    display: none;
-  }
-
-  .surprise-btn {
-    padding: 7px 10px;
-  }
-
-  /* Compact FAB on mobile */
-  .fab-btn {
-    height: 52px;
-    width: 52px;
-    padding: 0;
-    border-radius: 50%;
-    justify-content: center;
-  }
-
-  .fab-label {
-    display: none;
-  }
-}
-
-/* ============================================================
-   TAB SWITCHER
-   ============================================================ */
-
-/* ─── Morphic tabs ───────────────────────────────────────────────
-   Adapted from KokonutUI's Morphic Navbar. The items form one continuous
-   track; the active item takes a horizontal margin and full rounding so it
-   reads as a pill that has detached, and its neighbours round the edge they
-   present to the gap. Reduced motion is already handled globally above, so
-   these transitions get clamped there rather than disabled here. */
-
-/* Board canvas wrapper — lifted above the light-rays layer, same as the other
-   pages. Without this the rays would paint over the tiles. */
-.board-layer {
-  position: relative;
-  z-index: 1;
-  height: 100%;
-}
-
-.morphic-tabs {
-  display: flex;
-  align-items: stretch;
-  flex-shrink: 0;
-  padding: 3px;
-  border-radius: 100px;
-  background: var(--reset-btn-bg);
-  border: 1px solid var(--reset-btn-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--card-shadow);
-}
-
-.morphic-tab {
-  appearance: none;
-  border: none;
-  cursor: pointer;
-  padding: 5px 14px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  /* Held constant across states on purpose: the active pill already carries
-     the signal, and switching weight would reflow the label on every tab
-     change on top of the margin animation. */
-  font-weight: 500;
-  line-height: 1.45;
-  white-space: nowrap;
-  color: var(--tab-inactive-text);
-  background: var(--tab-track-bg);
-  border-radius: 0;
-  margin: 0;
-  transition:
-    margin 0.28s var(--ease-out-quart),
-    border-radius 0.28s var(--ease-out-quart),
-    background-color 0.2s ease,
-    color 0.2s ease;
-}
-
-.morphic-tab.round-left {
-  border-top-left-radius: 100px;
-  border-bottom-left-radius: 100px;
-}
-
-.morphic-tab.round-right {
-  border-top-right-radius: 100px;
-  border-bottom-right-radius: 100px;
-}
-
-.morphic-tab.is-active {
-  margin: 0 3px;
-  border-radius: 100px;
-  background: var(--bg-btn-add);
-  color: #111110;
-}
-
-.morphic-tab:not(.is-active):hover {
-  color: var(--text-primary);
-}
-
-.morphic-tab:focus-visible {
-  outline: 2px solid var(--bg-btn-add);
-  outline-offset: 2px;
-  border-radius: 100px;
-}
-
-/* ============================================================
    DISCOVER PAGE
    ============================================================ */
 
-/* Shared by Discover, Quotes and Places.
-   Transparent rather than --bg-canvas so the light-rays layer shows through:
-   this is a fixed, full-viewport element, so an opaque fill here would cover
-   the rays entirely. The canvas colour and dot grid come from .moodboard-root
-   underneath, which paints the identical grid at the same origin. z-index lifts
-   the content clear of the rays at z-index 0. */
+/* Shared by Discover, Quotes and Places. Transparent rather than --bg-canvas
+   so .moodboard-root's background (dot grid in light mode, the frosted
+   gradient in dark mode) shows through: this is a fixed, full-viewport
+   element, so an opaque fill here would cover it entirely. left clears the
+   sidebar the same way .board-layer does. */
 .discover-page {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  bottom: 0;
+  transition: left 0.25s var(--ease-out-quart);
   z-index: 1;
   overflow-y: auto;
   padding: var(--space-9) var(--space-6) var(--space-9);
-  /* Clear the fixed topbar, which wraps to two rows below 640px and would
-     otherwise sit on top of the eyebrow and heading. --topbar-bottom is
-     measured in moodboard.tsx because the height varies with viewport width
-     and active tab. max() means this can only ever grow past the desktop
-     value, never shrink it — and the 0px fallback keeps first paint identical
-     to before if the measurement hasn't landed yet. */
-  padding-top: max(
-    var(--space-9),
-    calc(var(--topbar-bottom, 0px) + var(--space-5))
-  );
   background-color: transparent;
   background-image:
     radial-gradient(ellipse 80% 50% at 50% 0%, oklch(0.78 0.04 70 / 0.06), transparent 60%);
@@ -1715,8 +1709,7 @@ textarea:focus-visible,
 
 @media (max-width: 639px) {
   /* Sides only — a `padding` shorthand here would silently reset the
-     topbar-aware padding-top set on .discover-page above, which is exactly
-     the width range where that clearance matters most. */
+     top/bottom padding set on .discover-page above. */
   .discover-page {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
@@ -2463,6 +2456,14 @@ textarea:focus-visible,
 }
 .spotlight-input::placeholder { color: var(--muted, #b0b0b5); }
 
+/* Opt back out of the app-wide focus-visible ring here: this input is
+   auto-focused the instant the spotlight modal opens (click or ⌘K alike),
+   so the ring shows up on every open rather than only on real keyboard
+   navigation — and the modal itself already reads as the focused element. */
+.spotlight-input:focus-visible {
+  outline: none;
+}
+
 .spotlight-results {
   display: flex;
   flex-direction: column;
@@ -2950,108 +2951,4 @@ textarea:focus-visible,
   .lightbox-nav--prev { left: 8px; }
   .lightbox-nav--next { right: 8px; }
   .place-photo-strip { margin: 0 -24px; }
-}
-
-/* ============================================================
-   LIGHT RAYS — ambient background, ported from Magic UI
-   ============================================================ */
-
-/* One fixed layer for the whole app, sitting above --bg-canvas and its dot
-   grid but beneath every page's content. The blend mode lives on the container
-   rather than the rays: position:fixed makes this a stacking context, so a
-   blend on the children would only mix them with each other, never with the
-   canvas behind. */
-.light-rays {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  mix-blend-mode: var(--light-rays-blend);
-}
-
-/* The two static ambient glows. Cheap — no filter, no animation — and they
-   carry a good share of the effect on their own. */
-.light-rays::before,
-.light-rays::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.6;
-}
-
-.light-rays::before {
-  background: radial-gradient(
-    circle at 20% 15%,
-    color-mix(in srgb, var(--light-rays-color) 45%, transparent),
-    transparent 70%
-  );
-}
-
-.light-rays::after {
-  background: radial-gradient(
-    circle at 80% 10%,
-    color-mix(in srgb, var(--light-rays-color) 35%, transparent),
-    transparent 75%
-  );
-}
-
-.light-rays-ray {
-  position: absolute;
-  top: -12%;
-  left: var(--ray-left);
-  width: var(--ray-width);
-  height: var(--light-rays-length);
-  border-radius: 100px;
-  transform-origin: top center;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--light-rays-color) 70%, transparent),
-    transparent
-  );
-  filter: blur(var(--light-rays-blur));
-  opacity: 0;
-  animation: light-ray-drift var(--ray-duration) ease-in-out var(--ray-delay)
-    infinite;
-  /* Correct use of will-change: these animate for the lifetime of the page,
-     so the promoted layer is paid for once rather than churned. */
-  will-change: opacity, transform;
-}
-
-/* Fade up and back down while drifting a degree or two either side of rest —
-   the two properties the original animates. */
-@keyframes light-ray-drift {
-  0%,
-  100% {
-    opacity: 0;
-    transform: translateX(-50%)
-      rotate(calc(var(--ray-rotate) - var(--ray-swing)));
-  }
-  50% {
-    opacity: var(--ray-intensity);
-    transform: translateX(-50%)
-      rotate(calc(var(--ray-rotate) + var(--ray-swing)));
-  }
-}
-
-/* The global reduced-motion rule clamps animation-duration to ~0, which would
-   leave every ray parked on its 0% keyframe — invisible. Hold them still at a
-   soft constant instead, so the effect degrades to a calm static wash. */
-@media (prefers-reduced-motion: reduce) {
-  .light-rays-ray {
-    animation: none;
-    opacity: calc(var(--ray-intensity) * 0.45);
-    transform: translateX(-50%) rotate(var(--ray-rotate));
-  }
-}
-
-/* Blur is the expensive part. Ease off on small screens, and drop the last two
-   rays — the two ambient glows still carry the effect. */
-@media (max-width: 640px) {
-  .light-rays {
-    --light-rays-blur: 20px;
-  }
-  .light-rays-ray:nth-child(n + 4) {
-    display: none;
-  }
 }
