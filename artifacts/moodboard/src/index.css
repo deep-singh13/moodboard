@@ -53,16 +53,31 @@
   --bg-btn-add-hover: #C4956A;
   --bg-topbar: oklch(0.965 0.006 70 / 0.88);
 
-  /* Sidebar-specific accent — same brand tan as --bg-btn-add here (light mode
-     never changed), but dark mode below darkens it independently. Kept as its
-     own token rather than repointing --bg-btn-add so the many other consumers
-     of that var (badges, chips, focus rings, quote-card accents — all on
-     their own card surfaces, not the new dark canvas) stay exactly as they
-     were; only the FAB and the active sidebar tab needed to change. */
+  /* Primary-action accent — same brand tan as --bg-btn-add here (light mode
+     never changed), but dark mode below swaps it for a cool slate instead.
+     Kept as its own token rather than repointing --bg-btn-add so the many
+     other consumers of that var (card badges, quote-card accents, filter
+     chips on Discover/Places — all on their own warm card surfaces, not the
+     canvas or a modal) stay exactly as they were; only the elements that
+     actually sit against the new dark canvas/modal chrome needed to change:
+     the FAB, the active sidebar tab, and every modal's primary button and
+     active type-tab (Movie/Reel/Link, etc.) — anywhere "confirm/add" shows up. */
   --sidebar-accent: #D4A574;
   --sidebar-accent-hover: #C4956A;
   --sidebar-accent-text: #111110;
   --sidebar-bg: var(--bg-card);
+
+  /* Shared by every translucent-wash active chip: modal type-tabs (Movie/
+     Reel/Link) and page filter-chips (Discover/Places' All/Movies/Want to
+     go/etc) — same pattern, same surface (dark card or dark canvas), so one
+     token pair rather than two identical ones. Gets its own text tone (the
+     same lighter tier used for --wordmark-color) instead of
+     --sidebar-accent's own dark base value, which only clears ~2.6:1 as text
+     directly on a card/canvas surface. */
+  --chip-active-bg: rgba(212, 165, 116, 0.15);
+  --chip-active-border: rgba(212, 165, 116, 0.45);
+  --chip-active-text: #D4A574;
+  --modal-focus-glow: rgba(212, 165, 116, 0.15);
 
   /* Borders — tinted, not flat black */
   --border-card: oklch(0.18 0.01 70 / 0.07);
@@ -161,6 +176,14 @@
   --sidebar-accent-hover: #5e6f7a;
   --sidebar-accent-text: #FFFFFF;
   --sidebar-bg: #17181c;
+
+  /* Same slate as --sidebar-accent, but as text on a dark card/canvas
+     surface --sidebar-accent's base tier only clears ~2.6:1 — the lighter
+     tier (same one --wordmark-color uses) is the one built for text. */
+  --chip-active-bg: rgba(74, 92, 106, 0.22);
+  --chip-active-border: rgba(74, 92, 106, 0.55);
+  --chip-active-text: #9BA8AB;
+  --modal-focus-glow: rgba(74, 92, 106, 0.28);
 
   /* Borders */
   --border-card: oklch(1 0 0 / 0.07);
@@ -510,6 +533,44 @@ textarea:focus-visible,
 .sidebar.is-collapsed .sidebar-search-label,
 .sidebar.is-collapsed .sidebar-search-kbd {
   display: none;
+}
+
+/* ============================================================
+   MOBILE — collapse means fully hidden, not an icon rail (≤ 640px)
+   The icon-only rail is the right collapsed state at tablet/desktop
+   widths, but on a phone that rail still claims real width and sits
+   above sheets/modals that don't reserve space for it (see the Add
+   Discover bottom sheet). Collapsing all the way to zero gets that width
+   back entirely; only the toggle survives, as a small floating handle,
+   so the sidebar can still be brought back. Tablet and desktop are
+   untouched — this rule only exists inside the 640px query.
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .moodboard-root.sidebar-collapsed {
+    --sidebar-width: 0px;
+  }
+
+  .sidebar {
+    overflow: hidden;
+  }
+
+  .sidebar.is-collapsed {
+    /* border-box clamps width:0 down to its content minimum, not below —
+       without zeroing padding too, the sidebar still renders at ~24px
+       (its own left+right padding) with children peeking out past it. */
+    padding: 0;
+    border-right: none;
+  }
+
+  /* Escapes the now-zero-width sidebar box (position: absolute is relative
+     to it) so it keeps working as a fixed-position handle instead of
+     collapsing to the same single point as everything else inside. */
+  .sidebar.is-collapsed .sidebar-collapse-btn {
+    position: fixed;
+    left: 12px;
+    right: auto;
+  }
 }
 
 /* ============================================================
@@ -1227,8 +1288,8 @@ textarea:focus-visible,
 }
 
 .modal-input:focus {
-  border-color: var(--bg-btn-add);
-  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
+  border-color: var(--sidebar-accent);
+  box-shadow: 0 0 0 3px var(--modal-focus-glow);
 }
 
 .modal-input::placeholder {
@@ -1277,7 +1338,7 @@ textarea:focus-visible,
   font-size: 13px;
   font-weight: 600;
   color: var(--text-btn-add);
-  background: var(--bg-btn-add);
+  background: var(--sidebar-accent);
   border: none;
   border-radius: 12px;
   cursor: pointer;
@@ -1285,7 +1346,7 @@ textarea:focus-visible,
 }
 
 .modal-btn-primary:hover:not(:disabled) {
-  background: var(--bg-btn-add-hover);
+  background: var(--sidebar-accent-hover);
   transform: translateY(-1px);
 }
 
@@ -1686,9 +1747,9 @@ textarea:focus-visible,
 }
 
 .filter-chip.active {
-  background: oklch(0.76 0.09 70 / 0.16);
-  border-color: oklch(0.72 0.10 70 / 0.5);
-  color: var(--bg-btn-add);
+  background: var(--chip-active-bg);
+  border-color: var(--chip-active-border);
+  color: var(--chip-active-text);
 }
 
 /* ── Masonry grid ── */
@@ -1969,7 +2030,7 @@ textarea:focus-visible,
   font-style: italic;
   font-size: 3.5rem;
   line-height: 1;
-  color: oklch(0.72 0.10 70);     /* caramel, low chroma */
+  color: var(--wordmark-color);
   margin-bottom: var(--space-5);
   user-select: none;
   letter-spacing: -0.02em;
@@ -1997,9 +2058,9 @@ textarea:focus-visible,
 }
 
 .modal-type-tab.active {
-  background: rgba(212, 165, 116, 0.15);
-  border-color: rgba(212, 165, 116, 0.45);
-  color: var(--bg-btn-add);
+  background: var(--chip-active-bg);
+  border-color: var(--chip-active-border);
+  color: var(--chip-active-text);
 }
 
 /* Movie search results list */
@@ -2390,8 +2451,8 @@ textarea:focus-visible,
 }
 
 .modal-textarea:focus {
-  border-color: var(--bg-btn-add);
-  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
+  border-color: var(--sidebar-accent);
+  box-shadow: 0 0 0 3px var(--modal-focus-glow);
 }
 
 .modal-textarea::placeholder {

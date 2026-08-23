@@ -2,7 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <!-- interactive-widget=resizes-content: without it, the on-screen keyboard
+         opening doesn't shrink the CSS viewport on Chrome/Android — the
+         sidebar and every modal are position:fixed against the pre-keyboard
+         viewport (inset:0 / top:0;bottom:0), which is normally fine since
+         they resize together, but the moment they stop resizing together
+         (keyboard covers the bottom without shrinking the viewport that
+         both are computed against) whichever one keeps its full extent can
+         end up stacking oddly against the other. This makes the keyboard
+         resize the actual viewport instead of just overlaying it, so both
+         keep agreeing on what "the viewport" is. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#F9F8F5" />
     <title>Moodboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
