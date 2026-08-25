@@ -160,30 +160,26 @@
   --bg-btn-add-hover: #C4956A;
   --bg-topbar: oklch(0.16 0.005 70 / 0.88);
 
-  /* User-supplied slate palette (#06141B → #CCD0CF), picked to sit with the
-     frosty background's own cool blue-gray glow rather than the brand tan —
-     two warm derivations in a row (darkened, then desaturated) still read as
-     "the beige accent" next to a neutral background; a hue that actually
-     belongs to that background's family was the fix. #4A5C6A is the palette's
-     mid tier — light enough to read as a distinct accent (the two steps
-     below it are within ~1.5:1 of the background, too close to work as a
-     fill), dark enough to stay moody rather than pastel. Hover is a 25% blend
-     toward the next tier up (#9BA8AB) rather than jumping straight to it:
-     #9BA8AB itself only gives white text 2.45:1, which would go unreadable
-     the instant a button is hovered. Text flips to white, since #111110
-     (the light-mode pairing) has almost no contrast here. */
-  --sidebar-accent: #4A5C6A;
-  --sidebar-accent-hover: #5e6f7a;
-  --sidebar-accent-text: #FFFFFF;
+  /* User-supplied ice-blue accent (#DBEAF2), replacing an earlier slate-grey
+     stand-in for the brand tan on dark surfaces. Being this light flips the
+     usual pairing: text drawn *on* a --sidebar-accent fill needs dark ink,
+     not white, so --sidebar-accent-text switches to the same near-black used
+     in light mode (see the [data-theme="dark"] .fab-btn / .modal-btn-primary
+     overrides below, which repoint from --text-btn-add for the same reason).
+     Text drawn *as* the accent (chip labels, wordmark) keeps using the
+     accent hue directly — at this lightness it already clears well past
+     4.5:1 against the dark canvas/card surfaces. Hover darkens ~10% rather
+     than lightening, since lightening a color this close to white has
+     nowhere left to go. */
+  --sidebar-accent: #DBEAF2;
+  --sidebar-accent-hover: #C5D3DA;
+  --sidebar-accent-text: #111110;
   --sidebar-bg: #17181c;
 
-  /* Same slate as --sidebar-accent, but as text on a dark card/canvas
-     surface --sidebar-accent's base tier only clears ~2.6:1 — the lighter
-     tier (same one --wordmark-color uses) is the one built for text. */
-  --chip-active-bg: rgba(74, 92, 106, 0.22);
-  --chip-active-border: rgba(74, 92, 106, 0.55);
-  --chip-active-text: #9BA8AB;
-  --modal-focus-glow: rgba(74, 92, 106, 0.28);
+  --chip-active-bg: rgba(219, 234, 242, 0.22);
+  --chip-active-border: rgba(219, 234, 242, 0.55);
+  --chip-active-text: #DBEAF2;
+  --modal-focus-glow: rgba(219, 234, 242, 0.28);
 
   /* Borders */
   --border-card: oklch(1 0 0 / 0.07);
@@ -218,19 +214,18 @@
 
   --icon-resting: oklch(0.5 0.005 70);
 
-  /* Same slate palette as --sidebar-accent, one tier lighter (#9BA8AB) —
-     as text rather than a filled shape it needs more contrast than the
-     accent's own tier gives (7.25:1 here vs --sidebar-bg). */
-  --wordmark-color: #9BA8AB;
+  /* Same ice-blue as --sidebar-accent, used directly as text here (not a
+     filled shape), which is where its lightness works in its favor. */
+  --wordmark-color: #DBEAF2;
 
   /* Shadows */
   --card-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 2px 10px rgba(0,0,0,0.2);
   --card-shadow-hover: 0 8px 32px rgba(0,0,0,0.45), 0 2px 10px rgba(0,0,0,0.25);
-  /* Retinted to --sidebar-accent's slate (#4A5C6A) — kept subtle rather than
-     a saturated glow, same reasoning as the accent itself: this button sits
-     against a quiet, mostly-neutral background, not a spotlight. */
-  --fab-shadow: 0 4px 20px rgba(74, 92, 106, 0.28), 0 2px 8px rgba(0,0,0,0.35);
-  --fab-shadow-hover: 0 6px 28px rgba(74, 92, 106, 0.36), 0 2px 8px rgba(0,0,0,0.4);
+  /* Retinted to --sidebar-accent's ice-blue (#DBEAF2) — kept subtle rather
+     than a saturated glow, same reasoning as the accent itself: this button
+     sits against a quiet, mostly-neutral background, not a spotlight. */
+  --fab-shadow: 0 4px 20px rgba(219, 234, 242, 0.28), 0 2px 8px rgba(0,0,0,0.35);
+  --fab-shadow-hover: 0 6px 28px rgba(219, 234, 242, 0.36), 0 2px 8px rgba(0,0,0,0.4);
 
   /* Dot grid */
   --dot-color: rgba(255, 255, 255, 0.04);
@@ -294,6 +289,20 @@ textarea:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--bg-btn-add);
   outline-offset: 2px;
+}
+
+/* --bg-btn-add stays tan everywhere in dark mode (its many card-surface
+   consumers are deliberately untouched, see --sidebar-accent above), but
+   this ring is meant to read as *the* on-brand accent — which in dark mode
+   is now --sidebar-accent's ice-blue. Left as tan, it doubles up against
+   any element's own ice-blue focus glow (e.g. .modal-input) as two
+   different-colored rings stacked on each other. */
+[data-theme="dark"] button:focus-visible,
+[data-theme="dark"] a:focus-visible,
+[data-theme="dark"] input:focus-visible,
+[data-theme="dark"] textarea:focus-visible,
+[data-theme="dark"] [tabindex]:focus-visible {
+  outline-color: var(--sidebar-accent);
 }
 
 /* Honor reduced motion — strip choreographed animation, keep state transitions */
@@ -570,6 +579,15 @@ textarea:focus-visible,
     position: fixed;
     left: 12px;
     right: auto;
+  }
+
+  /* The collapse handle above floats at top:24px/left:12px regardless of
+     --sidebar-width, so once that width hits 0 it lands directly on top of
+     Reset view, which starts at the same corner (left: calc(0px + 16px)).
+     Push the whole bar down clear of the handle (bottom edge 24+24=48px)
+     only for the board tab's collapsed state that actually causes it. */
+  .moodboard-root.sidebar-collapsed .board-utility-bar {
+    top: 56px;
   }
 }
 
@@ -1193,6 +1211,13 @@ textarea:focus-visible,
   box-shadow: var(--fab-shadow-hover);
 }
 
+/* --text-btn-add stays white for --bg-btn-add's still-tan fill, but dark
+   mode's --sidebar-accent is now ice-blue — white text on it is unreadable,
+   so this fill needs the dark-ink pairing (--sidebar-accent-text) instead. */
+[data-theme="dark"] .fab-btn {
+  color: var(--sidebar-accent-text);
+}
+
 .fab-btn:active {
   transform: translateY(0) scale(0.97);
 }
@@ -1348,6 +1373,12 @@ textarea:focus-visible,
 .modal-btn-primary:hover:not(:disabled) {
   background: var(--sidebar-accent-hover);
   transform: translateY(-1px);
+}
+
+/* Same fix as .fab-btn above: dark mode's ice-blue --sidebar-accent needs
+   dark ink, not the shared white --text-btn-add. */
+[data-theme="dark"] .modal-btn-primary {
+  color: var(--sidebar-accent-text);
 }
 
 .modal-btn-primary:disabled {
