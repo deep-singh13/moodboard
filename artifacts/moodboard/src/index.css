@@ -519,12 +519,12 @@ textarea:focus-visible,
   color: var(--text-primary);
 }
 
+/* Rotation itself is inline (Sidebar.tsx), keyed to the real persisted
+   `collapsed` prop rather than the `.is-collapsed` class — that class also
+   toggles for the hover-peek's visual state, but the arrow should always
+   point the way the actual click (pin/unpin) will go, peek or not. */
 .sidebar-collapse-btn svg {
   transition: transform 0.25s var(--ease-out-quart);
-}
-
-.sidebar.is-collapsed .sidebar-collapse-btn svg {
-  transform: rotate(180deg);
 }
 
 /* Collapsed: icon-only rail — center everything, hide every label. */

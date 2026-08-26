@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BoardIcon, DiscoverIcon, QuoteIcon, MapPinIcon } from "@/components/icons";
+import { useMinWidth } from "@/lib/gridUtils";
 
 export type TabId = "board" | "discover" | "quotes" | "places";
 
@@ -8,6 +10,13 @@ interface SidebarTabDef {
   label: string;
   Icon: (props: { size?: number }) => React.JSX.Element;
 }
+
+// Must match --sidebar-width's expanded value in index.css. The nav's own
+// `width` normally tracks that CSS var (set at the .moodboard-root level
+// from the persisted collapse preference, so board content only reflows on
+// a real pin/unpin) — peeking overrides it inline instead, so the rail
+// widens locally without touching the var or the layout underneath it.
+const EXPANDED_SIDEBAR_WIDTH = "220px";
 
 const SIDEBAR_TABS: ReadonlyArray<SidebarTabDef> = [
   { id: "board", label: "Board", Icon: BoardIcon },
@@ -35,8 +44,22 @@ export function Sidebar({
   onToggleTheme,
   onOpenSearch,
 }: SidebarProps) {
+  const [hovered, setHovered] = useState(false);
+  // Hovering the collapsed rail on a desktop-width viewport peeks it open
+  // without touching the persisted preference — tablet/mobile never set
+  // `hovered` to anything meaningful since isDesktop stays false there.
+  const isDesktop = useMinWidth(1024);
+  const peeking = collapsed && isDesktop && hovered;
+  const visuallyCollapsed = collapsed && !peeking;
+
   return (
-    <nav className={`sidebar ${collapsed ? "is-collapsed" : ""}`} aria-label="Sections">
+    <nav
+      className={`sidebar ${visuallyCollapsed ? "is-collapsed" : ""}`}
+      aria-label="Sections"
+      style={peeking ? { width: EXPANDED_SIDEBAR_WIDTH } : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div className="sidebar-header">
         <span className="sidebar-wordmark">moodboard</span>
       </div>
@@ -51,7 +74,7 @@ export function Sidebar({
                 className={`sidebar-tab ${isActive ? "is-active" : ""}`}
                 aria-current={isActive ? "true" : undefined}
                 onClick={() => onSelectTab(id)}
-                title={collapsed ? label : undefined}
+                title={visuallyCollapsed ? label : undefined}
               >
                 <Icon size={17} />
                 <span className="sidebar-tab-label">{label}</span>
@@ -67,7 +90,7 @@ export function Sidebar({
           className="sidebar-search-btn"
           onClick={onOpenSearch}
           aria-label="Open search"
-          title={collapsed ? "Search" : undefined}
+          title={visuallyCollapsed ? "Search" : undefined}
         >
           <svg
             className="sidebar-search-icon"
@@ -95,7 +118,17 @@ export function Sidebar({
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ transform: collapsed ? "rotate(180deg)" : undefined }}
+        >
           <path d="M15 18l-6-6 6-6" />
         </svg>
       </button>

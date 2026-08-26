@@ -20,10 +20,14 @@ function loadSidebarCollapsed(): boolean {
     if (stored === "0") return false;
   } catch {}
   // No stored preference yet — default to collapsed on narrow viewports,
-  // where a 220px rail eats an unreasonable share of the screen. innerWidth
-  // is 0 in a sliver of embedding contexts before the first layout lands;
-  // treat that as "unknown" rather than "narrow" so it doesn't default-collapse.
-  return typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth < 768;
+  // where a 220px rail eats an unreasonable share of the screen, and also on
+  // desktop viewports (>=1024px), where the sidebar hover-peek (see
+  // Sidebar.tsx) makes the icon rail the primary way to see it. The 768-1023
+  // tablet band keeps its old default-expanded behavior. innerWidth is 0 in
+  // a sliver of embedding contexts before the first layout lands; treat that
+  // as "unknown" rather than "narrow" so it doesn't default-collapse.
+  if (typeof window === "undefined" || window.innerWidth === 0) return false;
+  return window.innerWidth < 768 || window.innerWidth >= 1024;
 }
 
 const GRID_GAP = 20;
