@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { MoodboardItem } from "@/types";
 import { refreshItemPrice } from "@/lib/api";
 import { DiscoverCard } from "@/components/DiscoverCard";
+import { ParallaxColumns } from "@/components/ParallaxColumns";
 import { AddDiscoverModal } from "@/components/AddDiscoverModal";
 import { EditDiscoverItemModal } from "@/components/EditDiscoverItemModal";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
@@ -33,6 +34,7 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
     replace,
   } = useBoard({ board: "discover" });
   const { highlightId, highlight } = useHighlight(".discover-page");
+  const pageRef = useRef<HTMLDivElement>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
@@ -93,7 +95,7 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
   const chipClass = (active: boolean) => `filter-chip${active ? " active" : ""}`;
 
   return (
-    <div className="discover-page">
+    <div className="discover-page" ref={pageRef}>
       <div className="discover-page-inner">
         <header className="discover-header">
           <span className="discover-eyebrow">A running collection</span>
@@ -156,29 +158,27 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
         )}
 
         {!loading && !loadError && displayed.length > 0 && (
-          <div className="discover-masonry">
-            {columns.map((col, ci) => (
-              <div key={ci} className="discover-col">
-                {col.map((item) => (
-                  <DiscoverCard
-                    key={item.id}
-                    item={item}
-                    isHighlighted={item.id === highlightId}
-                    onRemove={remove}
-                    onToggleComplete={toggleComplete}
-                    onTogglePin={togglePin}
-                    onUpdateNote={updateNote}
-                    onRefreshPrice={refreshPrice}
-                    isRefreshingPrice={refreshingIds.has(item.id)}
-                    onEdit={(id) => {
-                      const found = items.find((i) => i.id === id);
-                      if (found) setEditItem(found);
-                    }}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+          <ParallaxColumns
+            columns={columns}
+            scrollContainerRef={pageRef}
+            renderItem={(item) => (
+              <DiscoverCard
+                key={item.id}
+                item={item}
+                isHighlighted={item.id === highlightId}
+                onRemove={remove}
+                onToggleComplete={toggleComplete}
+                onTogglePin={togglePin}
+                onUpdateNote={updateNote}
+                onRefreshPrice={refreshPrice}
+                isRefreshingPrice={refreshingIds.has(item.id)}
+                onEdit={(id) => {
+                  const found = items.find((i) => i.id === id);
+                  if (found) setEditItem(found);
+                }}
+              />
+            )}
+          />
         )}
       </div>
 

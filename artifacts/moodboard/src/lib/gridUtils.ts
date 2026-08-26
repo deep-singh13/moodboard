@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react";
 import type { MoodboardItem, PlaceMeta } from "@/types";
 
+/** Reactive `window.innerWidth >= px`, updated on resize. */
+export function useMinWidth(px: number): boolean {
+  const [matches, setMatches] = useState(() => (typeof window !== "undefined" ? window.innerWidth >= px : true));
+  useEffect(() => {
+    const update = () => setMatches(window.innerWidth >= px);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [px]);
+  return matches;
+}
+
 /** Column count for the masonry grids on Discover and Places. */
 export function useColumnCount(): number {
   const [cols, setCols] = useState(() => {

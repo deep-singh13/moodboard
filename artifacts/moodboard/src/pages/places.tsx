@@ -1,9 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { MoodboardItem } from "@/types";
 import { useColumnCount, toColumns } from "@/lib/gridUtils";
 import { useBoard } from "@/lib/useBoard";
 import { useHighlight } from "@/lib/useHighlight";
 import { PlaceCard } from "@/components/PlaceCard";
+import { ParallaxColumns } from "@/components/ParallaxColumns";
 import { AddPlaceModal } from "@/components/AddPlaceModal";
 import { PlaceDetailModal } from "@/components/PlaceDetailModal";
 import { SpotlightSearch } from "@/components/SpotlightSearch";
@@ -28,6 +29,7 @@ export default function Places({ spotlightOpen, onSpotlightClose }: PlacesProps)
     updateNote,
   } = useBoard({ board: "places" });
   const { highlightId, highlight } = useHighlight(".places-page");
+  const pageRef = useRef<HTMLDivElement>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -62,7 +64,7 @@ export default function Places({ spotlightOpen, onSpotlightClose }: PlacesProps)
   const chipClass = (active: boolean) => `filter-chip${active ? " active" : ""}`;
 
   return (
-    <div className="places-page discover-page">
+    <div className="places-page discover-page" ref={pageRef}>
       <div className="discover-page-inner">
         <header className="discover-header">
           <span className="discover-eyebrow">Tables worth booking</span>
@@ -129,24 +131,22 @@ export default function Places({ spotlightOpen, onSpotlightClose }: PlacesProps)
         )}
 
         {!loading && !loadError && displayed.length > 0 && (
-          <div className="discover-masonry">
-            {columns.map((col, ci) => (
-              <div key={ci} className="discover-col">
-                {col.map((item) => (
-                  <PlaceCard
-                    key={item.id}
-                    item={item}
-                    isHighlighted={item.id === highlightId}
-                    onOpen={setDetailItem}
-                    onRemove={removeItem}
-                    onToggleComplete={toggleComplete}
-                    onTogglePin={togglePin}
-                    onUpdateNote={updateNote}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+          <ParallaxColumns
+            columns={columns}
+            scrollContainerRef={pageRef}
+            renderItem={(item) => (
+              <PlaceCard
+                key={item.id}
+                item={item}
+                isHighlighted={item.id === highlightId}
+                onOpen={setDetailItem}
+                onRemove={removeItem}
+                onToggleComplete={toggleComplete}
+                onTogglePin={togglePin}
+                onUpdateNote={updateNote}
+              />
+            )}
+          />
         )}
       </div>
 
