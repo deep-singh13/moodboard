@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { SkeletonCard } from "@/components/MoodboardCard";
 import { ModalShell } from "@/components/ModalShell";
 import type { MoodboardItem } from "@/types";
+import type { ItemPatch } from "@/lib/useBoard";
 import { fetchOgMeta } from "@/lib/api";
 import { compressImage } from "@/lib/imageUtils";
 import { getDomain, normalizeUrl } from "@/lib/urlUtils";
@@ -9,6 +10,7 @@ import { getDomain, normalizeUrl } from "@/lib/urlUtils";
 interface AddItemModalProps {
   onClose: () => void;
   onAdd: (item: MoodboardItem) => void;
+  onUpdate: (id: string, patch: ItemPatch) => void;
 }
 
 function detectType(url: string): MoodboardItem["type"] {
@@ -24,24 +26,20 @@ function extractYoutubeId(url: string): string | null {
   return m ? m[1] : null;
 }
 
-async function fetchYoutubeMeta(
-  url: string,
-  videoId: string,
-): Promise<{ title?: string; imageUrl: string }> {
-  const imageUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+async function fetchYoutubeTitle(url: string): Promise<string | undefined> {
   try {
     const res = await fetch(
       `https://noembed.com/embed?url=${encodeURIComponent(url)}`,
       { signal: AbortSignal.timeout(8000) },
     );
     const data = await res.json();
-    return { title: data.title, imageUrl };
+    return data.title;
   } catch {
-    return { imageUrl };
+    return undefined;
   }
 }
 
-export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
+export function AddItemModal({ onClose, onAdd, onUpdate }: AddItemModalProps) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,57 +50,57 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
     inputRef.current?.focus();
   }, []);
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     const trimmed = url.trim();
     if (!trimmed) return;
 
     const normalizedUrl = normalizeUrl(trimmed);
-
-    setLoading(true);
     setError(null);
 
-    try {
-      const type = detectType(normalizedUrl);
-      let item: MoodboardItem;
+    const type = detectType(normalizedUrl);
 
-      if (type === "youtube") {
-        const videoId = extractYoutubeId(normalizedUrl);
-        if (!videoId) throw new Error("Invalid YouTube URL");
-        const meta = await fetchYoutubeMeta(normalizedUrl, videoId);
-        item = {
-          id: crypto.randomUUID(),
-          type: "youtube",
-          url: normalizedUrl,
-          title: meta.title,
-          subtitle: "YouTube",
-          imageUrl: meta.imageUrl,
-          addedAt: new Date().toISOString(),
-        };
-      } else {
-        const meta = await fetchOgMeta(normalizedUrl);
-        const domain = getDomain(normalizedUrl);
-        const substackName =
-          type === "substack"
-            ? domain.replace(".substack.com", "")
-            : domain;
-        item = {
-          id: crypto.randomUUID(),
-          type,
-          url: normalizedUrl,
-          title: meta.title ?? normalizedUrl,
-          subtitle: type === "substack" ? substackName : domain,
-          imageUrl: meta.image,
-          addedAt: new Date().toISOString(),
-        };
+    if (type === "youtube") {
+      const videoId = extractYoutubeId(normalizedUrl);
+      if (!videoId) {
+        setError("Couldn't load that link. Check the URL and try again.");
+        return;
       }
-
-      onAdd(item);
+      const id = crypto.randomUUID();
+      const imageUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      onAdd({
+        id,
+        type: "youtube",
+        url: normalizedUrl,
+        subtitle: "YouTube",
+        imageUrl,
+        addedAt: new Date().toISOString(),
+      });
       onClose();
-    } catch {
-      setError("Couldn't load that link. Check the URL and try again.");
-    } finally {
-      setLoading(false);
+      fetchYoutubeTitle(normalizedUrl).then((title) => {
+        if (title) onUpdate(id, { title });
+      });
+      return;
     }
+
+    const domain = getDomain(normalizedUrl);
+    const substackName =
+      type === "substack" ? domain.replace(".substack.com", "") : domain;
+    const id = crypto.randomUUID();
+    onAdd({
+      id,
+      type,
+      url: normalizedUrl,
+      title: normalizedUrl,
+      subtitle: type === "substack" ? substackName : domain,
+      addedAt: new Date().toISOString(),
+    });
+    onClose();
+    fetchOgMeta(normalizedUrl).then((meta) => {
+      const patch: ItemPatch = {};
+      if (meta.title) patch.title = meta.title;
+      if (meta.image) patch.imageUrl = meta.image;
+      if (Object.keys(patch).length > 0) onUpdate(id, patch);
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -146,7 +144,7 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
                 marginTop: 12,
               }}
             >
-              Fetching…
+              Processing…
             </p>
           </div>
         ) : (

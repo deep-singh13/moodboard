@@ -7,10 +7,16 @@ import { getDomain, normalizeUrl } from "@/lib/urlUtils";
 import { ModalShell } from "@/components/ModalShell";
 import { ModalTypeTabs } from "@/components/ModalTypeTabs";
 import { UploadPhotoButton } from "@/components/UploadPhotoButton";
+import type { ItemPatch } from "@/lib/useBoard";
 
 interface AddDiscoverModalProps {
   onClose: () => void;
   onAdd: (item: MoodboardItem) => void;
+  onUpdate: (id: string, patch: ItemPatch) => void;
+  /** A reel or link was added without a thumbnail and the background OG
+   *  fetch didn't find one either — the page may want to prompt the user to
+   *  add one manually (see discover.tsx's thumbnail toast). */
+  onMissingThumbnail: () => void;
 }
 
 type TabType = "movie" | "reel" | "link";
@@ -33,9 +39,8 @@ function extractInstagramUsername(url: string): string {
   } catch { return "Instagram Reel"; }
 }
 
-export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
+export function AddDiscoverModal({ onClose, onAdd, onUpdate, onMissingThumbnail }: AddDiscoverModalProps) {
   const [tab, setTab] = useState<TabType>("movie");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Movie tab state
@@ -45,6 +50,15 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
   const [selectedMovie, setSelectedMovie] = useState<MovieResult | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The item id a selected movie will be added under, generated at selection
+  // time (not Add-click time) so the background detail fetch — kicked off on
+  // selection — has a stable id to patch once it resolves, whether that's
+  // before or after Add is clicked.
+  const selectedIdRef = useRef<string | null>(null);
+  // Ids that were actually added, so a detail fetch for an abandoned
+  // selection (user picked another movie, or closed the modal) doesn't PATCH
+  // an id the server has never seen.
+  const addedIdsRef = useRef<Set<string>>(new Set());
 
   // Reel tab state
   const [reelUrl, setReelUrl] = useState("");
@@ -61,6 +75,7 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
   const handleMovieQueryChange = useCallback((q: string) => {
     setMovieQuery(q);
     setSelectedMovie(null);
+    selectedIdRef.current = null;
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (!q.trim()) { setMovieResults([]); return; }
     searchTimerRef.current = setTimeout(async () => {
@@ -71,13 +86,31 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
     }, 300);
   }, []);
 
-  const handleSelectMovie = async (result: MovieResult) => {
+  const handleSelectMovie = (result: MovieResult) => {
     setSelectedMovie(result);
-    // Fetch full details to get genre, rating, director
+    const id = crypto.randomUUID();
+    selectedIdRef.current = id;
+    // Fetch full details to get genre, rating, director in the background —
+    // Add no longer waits on this, so it patches in whenever it resolves.
     setDetailLoading(true);
-    const detail = await fetchMovieDetail(result.imdbId);
-    if (detail) setSelectedMovie(detail);
-    setDetailLoading(false);
+    fetchMovieDetail(result.imdbId).then((detail) => {
+      setDetailLoading((prev) => (selectedIdRef.current === id ? false : prev));
+      if (!detail) return;
+      setSelectedMovie((prev) =>
+        prev?.imdbId === result.imdbId ? detail : prev,
+      );
+      if (addedIdsRef.current.has(id)) {
+        onUpdate(id, {
+          meta: encodeMovieMeta({
+            year: detail.year ?? "",
+            genre: detail.genre ?? "",
+            rating: detail.rating ?? "",
+            director: detail.director ?? "",
+            imdbId: detail.imdbId,
+          }),
+        });
+      }
+    });
   };
 
   const handleReelThumbnail = async (file: File) => {
@@ -89,15 +122,14 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
     }
   };
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     setError(null);
-    setLoading(true);
 
     try {
       let item: MoodboardItem;
 
       if (tab === "movie") {
-        if (!selectedMovie) return;
+        if (!selectedMovie || !selectedIdRef.current) return;
         const meta = encodeMovieMeta({
           year: selectedMovie.year ?? "",
           genre: selectedMovie.genre ?? "",
@@ -106,7 +138,7 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
           imdbId: selectedMovie.imdbId,
         });
         item = {
-          id: crypto.randomUUID(),
+          id: selectedIdRef.current,
           type: "movie",
           board: "discover",
           url: `https://www.imdb.com/title/${selectedMovie.imdbId}`,
@@ -117,61 +149,73 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
           size: 320,
           addedAt: new Date().toISOString(),
         };
+        addedIdsRef.current.add(item.id);
+        onAdd(item);
+        onClose();
+        return;
       } else if (tab === "reel") {
         const trimmed = reelUrl.trim();
-        if (!trimmed) { setError("Please enter a URL."); setLoading(false); return; }
+        if (!trimmed) { setError("Please enter a URL."); return; }
         const url = normalizeUrl(trimmed);
         const username = reelCaption.trim() || extractInstagramUsername(url);
-        // Auto-fetch thumbnail if none manually uploaded
-        let autoThumb: string | undefined = reelThumbnail || undefined;
-        if (!autoThumb) {
-          const og = await fetchOgMeta(url);
-          autoThumb = og.image;
-        }
+        const id = crypto.randomUUID();
         item = {
-          id: crypto.randomUUID(),
+          id,
           type: "reel",
           board: "discover",
           url,
           title: username,
           subtitle: "Instagram",
-          imageUrl: autoThumb,
+          imageUrl: reelThumbnail || undefined,
           meta: encodeReelMeta({ username, reel_url: url }),
           size: 320,
           addedAt: new Date().toISOString(),
         };
+        onAdd(item);
+        onClose();
+        // Only auto-fetch a thumbnail if the user didn't upload one.
+        if (!reelThumbnail) {
+          fetchOgMeta(url).then((og) => {
+            if (og.image) onUpdate(id, { imageUrl: og.image });
+            else onMissingThumbnail();
+          });
+        }
+        return;
       } else {
         // Link
         const trimmed = linkUrl.trim();
-        if (!trimmed) { setError("Please enter a URL."); setLoading(false); return; }
+        if (!trimmed) { setError("Please enter a URL."); return; }
         const url = normalizeUrl(trimmed);
-        const og = await fetchOgMeta(url);
         const domain = getDomain(url);
+        const id = crypto.randomUUID();
         item = {
-          id: crypto.randomUUID(),
+          id,
           type: "link",
           board: "discover",
           url,
-          title: og.title ?? domain,
+          title: domain,
           subtitle: domain,
-          imageUrl: og.image,
           size: 320,
           addedAt: new Date().toISOString(),
         };
+        onAdd(item);
+        onClose();
+        fetchOgMeta(url).then((og) => {
+          const patch: ItemPatch = {};
+          if (og.title) patch.title = og.title;
+          if (og.image) patch.imageUrl = og.image;
+          if (Object.keys(patch).length > 0) onUpdate(id, patch);
+          if (!og.image) onMissingThumbnail();
+        });
+        return;
       }
-
-      onAdd(item);
-      onClose();
     } catch {
       setError("Something went wrong — please try again.");
-    } finally {
-      setLoading(false);
     }
   };
 
   const canAdd =
-    !loading &&
-    (tab === "movie" ? !!selectedMovie && !detailLoading :
+    (tab === "movie" ? !!selectedMovie :
      tab === "reel"  ? !!reelUrl.trim() :
      !!linkUrl.trim());
 
@@ -279,7 +323,7 @@ export function AddDiscoverModal({ onClose, onAdd }: AddDiscoverModalProps) {
             onClick={handleAdd}
             disabled={!canAdd}
           >
-            {loading ? "Adding…" : "Add to Discover"}
+            Add to Discover
           </button>
         </div>
     </ModalShell>

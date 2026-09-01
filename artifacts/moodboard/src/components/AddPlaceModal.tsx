@@ -9,14 +9,16 @@ import { fetchPlaceSearch, fetchPlaceDetail } from "@/lib/api";
 import { buildMapsUrl } from "@/lib/gridUtils";
 import { compressImage } from "@/lib/imageUtils";
 import { encodePlaceMeta } from "@/lib/itemMeta";
-import { normalizeUrl } from "@/lib/urlUtils";
+import { getDomain, normalizeUrl } from "@/lib/urlUtils";
 import { ModalShell } from "@/components/ModalShell";
 import { ModalTypeTabs } from "@/components/ModalTypeTabs";
 import { UploadPhotoButton } from "@/components/UploadPhotoButton";
+import type { ItemPatch } from "@/lib/useBoard";
 
 interface AddPlaceModalProps {
   onClose: () => void;
   onAdd: (item: MoodboardItem) => void;
+  onUpdate: (id: string, patch: ItemPatch) => void;
 }
 
 type TabType = "search" | "link" | "manual";
@@ -63,10 +65,22 @@ function detailToItem(detail: PlaceDetail): MoodboardItem {
   };
 }
 
-export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
+/** Patch fields for backfilling a stub place once its full detail arrives —
+ *  everything `detailToItem` computes except the identity/type fields the
+ *  stub already has. */
+function detailToPatch(detail: PlaceDetail): ItemPatch {
+  const full = detailToItem(detail);
+  return {
+    title: full.title,
+    subtitle: full.subtitle,
+    imageUrl: full.imageUrl,
+    meta: full.meta,
+  };
+}
+
+export function AddPlaceModal({ onClose, onAdd, onUpdate }: AddPlaceModalProps) {
   const [tab, setTab] = useState<TabType>("search");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Search tab
@@ -78,10 +92,6 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
 
   // Link tab
   const [linkUrl, setLinkUrl] = useState("");
-
-  // Shared preview — whichever District path produced it
-  const [preview, setPreview] = useState<PlaceDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
 
   // Manual tab
   const [manualName, setManualName] = useState("");
@@ -97,7 +107,6 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
 
   const handleQueryChange = useCallback((q: string) => {
     setQuery(q);
-    setPreview(null);
     setError(null);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (q.trim().length < 2) {
@@ -114,20 +123,37 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
     }, 300);
   }, []);
 
-  const loadDetail = useCallback(async (url: string) => {
-    setDetailLoading(true);
-    setError(null);
-    const detail = await fetchPlaceDetail(url);
-    setDetailLoading(false);
-    if (!detail) {
-      setPreview(null);
-      setError("Couldn't read that District page. Try again, or add it manually.");
-      return;
-    }
-    setPreview(detail);
-  }, []);
+  /** Picking a result commits it immediately — name/city land now, the rest
+   *  (address, photo, rating, cuisines) backfills once the District page has
+   *  been fetched. Failure is silent, same as a failed OG-meta fetch
+   *  elsewhere in this app: the stub just keeps its minimal fields. */
+  const handleSelectPlace = (result: PlaceSearchResult) => {
+    const id = crypto.randomUUID();
+    const meta: PlaceMeta = {
+      mapsUrl: buildMapsUrl({}, result.label),
+      cuisines: [],
+      photos: [],
+      menuImages: [],
+      source: "district",
+    };
+    onAdd({
+      id,
+      type: "place",
+      board: "places",
+      url: result.url,
+      title: result.label,
+      subtitle: result.city.toUpperCase(),
+      meta: encodePlaceMeta(meta),
+      size: 320,
+      addedAt: new Date().toISOString(),
+    });
+    onClose();
+    fetchPlaceDetail(result.url).then((detail) => {
+      if (detail) onUpdate(id, detailToPatch(detail));
+    });
+  };
 
-  const handleLinkLookup = useCallback(async () => {
+  const handleAddFromLink = () => {
     const trimmed = linkUrl.trim();
     if (!trimmed) return;
     const url = normalizeUrl(trimmed);
@@ -143,8 +169,24 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
       setError("That's not a District link. Use the By name tab to find it instead.");
       return;
     }
-    await loadDetail(url);
-  }, [linkUrl, loadDetail]);
+    setError(null);
+
+    const id = crypto.randomUUID();
+    onAdd({
+      id,
+      type: "place",
+      board: "places",
+      url,
+      title: getDomain(url),
+      meta: encodePlaceMeta({ cuisines: [], photos: [], menuImages: [], source: "district" }),
+      size: 320,
+      addedAt: new Date().toISOString(),
+    });
+    onClose();
+    fetchPlaceDetail(url).then((detail) => {
+      if (detail) onUpdate(id, detailToPatch(detail));
+    });
+  };
 
   const handleManualPhoto = async (file: File) => {
     try {
@@ -154,58 +196,39 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
     }
   };
 
-  const handleAdd = async () => {
+  const handleAddManual = () => {
+    const name = manualName.trim();
+    if (!name) { setError("Please enter a name."); return; }
     setError(null);
-    setLoading(true);
-    try {
-      if (tab === "manual") {
-        const name = manualName.trim();
-        if (!name) { setError("Please enter a name."); return; }
-        const address = manualAddress.trim();
-        const cuisines = manualCuisine
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean);
-        const meta: PlaceMeta = {
-          address: address || undefined,
-          cuisines,
-          mapsUrl: buildMapsUrl({ address: address || undefined }, name),
-          photos: [],
-          menuImages: [],
-          source: "manual",
-        };
-        onAdd({
-          id: crypto.randomUUID(),
-          type: "place",
-          board: "places",
-          url: "",
-          title: name,
-          subtitle: [address, cuisines.slice(0, 2).join(", ")]
-            .filter(Boolean)
-            .join(" · "),
-          imageUrl: manualPhoto ?? undefined,
-          meta: encodePlaceMeta(meta),
-          size: 320,
-          addedAt: new Date().toISOString(),
-        });
-        onClose();
-        return;
-      }
-
-      if (!preview) return;
-      onAdd(detailToItem(preview));
-      onClose();
-    } catch {
-      setError("Something went wrong — please try again.");
-    } finally {
-      setLoading(false);
-    }
+    const address = manualAddress.trim();
+    const cuisines = manualCuisine
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+    const meta: PlaceMeta = {
+      address: address || undefined,
+      cuisines,
+      mapsUrl: buildMapsUrl({ address: address || undefined }, name),
+      photos: [],
+      menuImages: [],
+      source: "manual",
+    };
+    onAdd({
+      id: crypto.randomUUID(),
+      type: "place",
+      board: "places",
+      url: "",
+      title: name,
+      subtitle: [address, cuisines.slice(0, 2).join(", ")]
+        .filter(Boolean)
+        .join(" · "),
+      imageUrl: manualPhoto ?? undefined,
+      meta: encodePlaceMeta(meta),
+      size: 320,
+      addedAt: new Date().toISOString(),
+    });
+    onClose();
   };
-
-  const canAdd =
-    !loading &&
-    !detailLoading &&
-    (tab === "manual" ? !!manualName.trim() : !!preview);
 
   return (
     <ModalShell onClose={onClose} label="Add a place">
@@ -215,11 +238,10 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
           onChange={(t) => {
             setTab(t);
             setError(null);
-            setPreview(null);
           }}
         />
 
-        {/* Search by name */}
+        {/* Search by name — picking a row adds it immediately */}
         {tab === "search" && (
           <>
             <input
@@ -240,16 +262,12 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
                 {results.map((r) => (
                   <div
                     key={r.slug}
-                    className={`movie-result ${preview?.districtUrl === r.url ? "selected" : ""}`}
-                    onClick={() => loadDetail(r.url)}
+                    className="movie-result"
+                    onClick={() => handleSelectPlace(r)}
                   >
                     <div>
                       <div className="movie-result-title">{r.label}</div>
-                      <div className="movie-result-meta">
-                        {detailLoading && preview?.districtUrl !== r.url
-                          ? "Loading details…"
-                          : r.city.toUpperCase()}
-                      </div>
+                      <div className="movie-result-meta">{r.city.toUpperCase()}</div>
                     </div>
                   </div>
                 ))}
@@ -258,7 +276,7 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
           </>
         )}
 
-        {/* Paste a District link */}
+        {/* Paste a District link — "Add place" commits, detail backfills after */}
         {tab === "link" && (
           <>
             <input
@@ -267,16 +285,20 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
               type="url"
               placeholder="Paste a district.in restaurant link…"
               value={linkUrl}
-              onChange={(e) => { setLinkUrl(e.target.value); setPreview(null); }}
-              onKeyDown={(e) => { if (e.key === "Enter") handleLinkLookup(); }}
+              onChange={(e) => { setLinkUrl(e.target.value); setError(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAddFromLink(); }}
             />
-            <button
-              className="modal-upload-btn"
-              onClick={handleLinkLookup}
-              disabled={!linkUrl.trim() || detailLoading}
-            >
-              {detailLoading ? "Fetching…" : "Fetch details"}
-            </button>
+            {error && <p className="modal-error">{error}</p>}
+            <div className="modal-actions">
+              <button className="modal-btn-secondary" onClick={onClose}>Cancel</button>
+              <button
+                className="modal-btn-primary"
+                onClick={handleAddFromLink}
+                disabled={!linkUrl.trim()}
+              >
+                Add place
+              </button>
+            </div>
           </>
         )}
 
@@ -307,44 +329,19 @@ export function AddPlaceModal({ onClose, onAdd }: AddPlaceModalProps) {
               label={manualPhoto ? "Photo uploaded ✓" : "Upload a photo (optional)"}
               onFileSelect={handleManualPhoto}
             />
+            {error && <p className="modal-error">{error}</p>}
+            <div className="modal-actions">
+              <button className="modal-btn-secondary" onClick={onClose}>Cancel</button>
+              <button
+                className="modal-btn-primary"
+                onClick={handleAddManual}
+                disabled={!manualName.trim()}
+              >
+                Add place
+              </button>
+            </div>
           </>
         )}
-
-        {/* Preview of whatever District returned */}
-        {detailLoading && tab !== "manual" && (
-          <p className="modal-hint">Fetching location, menu and photos…</p>
-        )}
-        {preview && !detailLoading && (
-          <div className="place-preview">
-            {preview.coverImage && (
-              <img className="place-preview-img" src={preview.coverImage} alt="" />
-            )}
-            <div className="place-preview-body">
-              <p className="place-preview-title">{preview.name}</p>
-              <p className="place-preview-meta">
-                {[preview.locality, preview.cuisines.slice(0, 2).join(", ")]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              <p className="place-preview-counts tnum">
-                {preview.lat != null ? "📍 Location" : "No location"}
-                {" · "}
-                {preview.menuImages.length} menu
-                {" · "}
-                {preview.photos.length} photos
-              </p>
-            </div>
-          </div>
-        )}
-
-        {error && <p className="modal-error">{error}</p>}
-
-        <div className="modal-actions">
-          <button className="modal-btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="modal-btn-primary" onClick={handleAdd} disabled={!canAdd}>
-            {loading ? "Adding…" : "Add place"}
-          </button>
-        </div>
     </ModalShell>
   );
 }

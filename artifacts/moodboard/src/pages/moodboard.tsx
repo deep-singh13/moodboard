@@ -143,6 +143,7 @@ export default function Moodboard() {
     remove,
     toggleComplete,
     updateNote,
+    update,
   } = useBoard({ board: "moodboard", insert: "append" });
 
   const [layoutItems, setLayoutItems] = useState<MoodboardItem[]>([]);
@@ -613,7 +614,11 @@ export default function Moodboard() {
       />
 
       {isModalOpen && (
-        <AddItemModal onClose={() => setIsModalOpen(false)} onAdd={addItem} />
+        <AddItemModal
+          onClose={() => setIsModalOpen(false)}
+          onAdd={addItem}
+          onUpdate={update}
+        />
       )}
 
       {lightboxSrc && (

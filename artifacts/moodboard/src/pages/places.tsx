@@ -27,6 +27,7 @@ export default function Places({ spotlightOpen, onSpotlightClose }: PlacesProps)
     toggleComplete,
     togglePin,
     updateNote,
+    update,
   } = useBoard({ board: "places" });
   const { highlightId, highlight } = useHighlight(".places-page");
   const pageRef = useRef<HTMLDivElement>(null);
@@ -158,7 +159,11 @@ export default function Places({ spotlightOpen, onSpotlightClose }: PlacesProps)
       </button>
 
       {isModalOpen && (
-        <AddPlaceModal onClose={() => setIsModalOpen(false)} onAdd={add} />
+        <AddPlaceModal
+          onClose={() => setIsModalOpen(false)}
+          onAdd={add}
+          onUpdate={update}
+        />
       )}
 
       {detailItem && (

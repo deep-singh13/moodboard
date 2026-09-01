@@ -32,6 +32,14 @@ import { sortItems } from "@/lib/gridUtils";
  * thumbnail toast, Places closing its detail modal on delete — stays in the
  * page. `add` and `remove` return promises so a page can compose on the
  * result instead of handing this module a callback it would have to sequence.
+ *
+ * The three Add modals (AddItemModal, AddDiscoverModal, AddPlaceModal) build
+ * on `add`/`update` the same way: insert a stub with whatever fields are
+ * already known and close immediately, then patch in the rest (title,
+ * image, meta) via `update()` once a metadata fetch — OG scrape, movie
+ * detail, District place detail — resolves in the background. A failed
+ * background fetch just leaves the stub's fallback fields in place; it's
+ * silent for the same reason `update()` doesn't roll back on failure above.
  * ------------------------------------------------------------------------ */
 
 export type BoardId = "moodboard" | "discover" | "quotes" | "places";

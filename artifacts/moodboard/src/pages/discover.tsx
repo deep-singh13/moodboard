@@ -62,17 +62,19 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
 
   const addItem = useCallback(
     (item: MoodboardItem) => {
-      // Show thumbnail toast for reels and links that came in without an image
-      if (!item.imageUrl && (item.type === "reel" || item.type === "link")) {
-        setThumbToast(true);
-        setTimeout(() => setThumbToast(false), 5000);
-      }
       add(item).then((saved) => {
         if (saved && item.type === "link") refreshPrice(item.id);
       });
     },
     [add, refreshPrice],
   );
+
+  // The Add modal calls this if a reel/link's background thumbnail fetch
+  // came up empty — the stub is added instantly, before we know that.
+  const notifyMissingThumbnail = useCallback(() => {
+    setThumbToast(true);
+    setTimeout(() => setThumbToast(false), 5000);
+  }, []);
 
   const selectItem = useCallback(
     (item: MoodboardItem) => {
@@ -191,7 +193,12 @@ export default function Discover({ spotlightOpen, onSpotlightClose }: DiscoverPr
       </button>
 
       {isModalOpen && (
-        <AddDiscoverModal onClose={() => setIsModalOpen(false)} onAdd={addItem} />
+        <AddDiscoverModal
+          onClose={() => setIsModalOpen(false)}
+          onAdd={addItem}
+          onUpdate={update}
+          onMissingThumbnail={notifyMissingThumbnail}
+        />
       )}
 
       {editItem && (
